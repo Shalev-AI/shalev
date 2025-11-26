@@ -6,9 +6,8 @@ import difflib
 import yaml
 from pprint import pprint
 from yaspin import yaspin
-import structlog
-
-logger = structlog.get_logger()
+from typing import List
+from shalev.shalev_setup import ShalevWorkspace  # <-- adjust path if needed
 
 SIZE_LIMIT = 30000
 

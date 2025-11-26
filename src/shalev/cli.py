@@ -1,25 +1,44 @@
 import click
-import structlog
 import logging
 from pprint import pprint
+from datetime import datetime
+import json
+import sys
 
 #################
 # logging setup #
 #################
-logging.basicConfig(
-    filename="commands_structlog.json",
-    level=logging.INFO,
-    format="%(message)s"
-)
+# global list to store logs
 
-structlog.configure(
-    processors=[
-        structlog.processors.TimeStamper(fmt="iso", key="time"),
-        structlog.processors.JSONRenderer()
-    ]
-)
-logger = structlog.get_logger()
-# log.info("user_logged_in", user="alice", status="ok") #QQQQ consider if it is what we need
+class JSONFileHandler(logging.Handler):
+    def __init__(self, path):
+        super().__init__()
+        self.path = path
+
+    def emit(self, record):
+        timestamp = datetime.fromtimestamp(record.created).strftime("%Y-%m-%d %H:%M:%S")
+
+        with open(self.path, "a") as f:
+            json_record = {
+                "timestamp": timestamp,
+                "level": record.levelname,
+                "message": record.getMessage(),
+            }
+            f.write(json.dumps(json_record) + "\n")
+
+def setup_logging(log_file="shalev_log.jsonl"):
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    stream = logging.StreamHandler(sys.stdout)
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s", "%H:%M:%S")
+    stream.setFormatter(formatter)
+
+    file_handler = JSONFileHandler(log_file)
+    print(file_handler.path)
+    logger.handlers.clear()
+    logger.addHandler(stream)
+    logger.addHandler(file_handler)
 
 
 from shalev.agent_actions import *
@@ -41,6 +60,7 @@ def cli():
 @click.argument('project')
 # @click.option('--project', default=".", help="Project name or path (default: current directory)")
 def compose(project):
+    logging.info(f"Running compose on project: {project}")
     compose_action(workspace_data.projects[project])
 
 ################
@@ -50,6 +70,8 @@ def compose(project):
 @click.argument('action')
 @click.argument('projcomps', nargs=-1)
 def agent(action, projcomps):
+    logging.info(f"Agent action '{action}' on: {projcomps}")
+
     for projcomp in projcomps:
         if projcomp.count('~') != 1:
             raise click.UsageError(f"'{projcomp}' is missing '~'. Format should be project~component")
@@ -72,7 +94,7 @@ def agent(action, projcomps):
 #################
 @click.command()
 def config():
-    print("doing config....QQQQ")
+    logging.info("Running config...")
 
 #################
 # shalev status #
@@ -80,6 +102,8 @@ def config():
 @click.command()
 # @click.option('--long', is_flag=True, help="Show full status.")
 def status():
+    logging.info("Displaying status")
+
     pprint(workspace_data)
     # if long:
     #     pprint(workspace_data)
@@ -97,6 +121,8 @@ cli.add_command(status)
 cli.add_command(config)
 
 def main():
+    setup_logging()
+    logging.info("Shalev CLI started")
     cli()
 
 if __name__ == '__main__':

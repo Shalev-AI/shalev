@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from typing import List, Dict
 from pprint import pprint
 
-
 @dataclass
 class ShalevProject:
     build_folder: str
