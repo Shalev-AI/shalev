@@ -1,2 +1,2 @@
 # You can set this with the command: shalev config -w example_workspace
-workspace_folder: ./example_workspace
+workspace_folder: ../example-latex-workspace

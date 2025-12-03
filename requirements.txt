@@ -12,7 +12,6 @@ openai==2.6.1
 pydantic==2.12.3
 pydantic_core==2.41.4
 PyYAML==6.0.3
--e git+ssh://git@github.com/yoninazarathy/shalev.git@2e5a5bec29da0cd04213e8224a753e566514dd1d#egg=shalev
 sniffio==1.3.1
 structlog==25.4.0
 termcolor==3.2.0
