@@ -79,7 +79,7 @@ def setup_workspace(fn = ".shalev.yaml"):
                 print(f"workspace_folder is not properly set in {fn}")
                 sys.exit(1)
     except FileNotFoundError:
-        print(f"Error: {fn} file does not exist", file=sys.stderr)
+        print(f"Error: {fn} file does not exist, try:\n\t shalev config -w <workspace folder location>", file=sys.stderr)
         sys.exit(1)
     # print("QQQQ:", workspace_folder) todo - log this is our workspace_folder
     try:
@@ -98,7 +98,7 @@ def setup_workspace(fn = ".shalev.yaml"):
                 sys.exit(1)
             return workspace_data
     except FileNotFoundError:
-        print(f"Error: {fn} file does not exist", file=sys.stderr)
+        print(f"Error: {fn} file does not exist, try:\n\t shalev config -w <workspace folder location>", file=sys.stderr)
         sys.exit(1)
 
     # workspace_name = config["workspace"]["name"]

@@ -43,7 +43,7 @@ def setup_logging(log_file="shalev_log.jsonl"):
 
 from shalev.agent_actions import *
 from shalev.compose_actions import *
-from shalev.shalev_setup import *
+from shalev.shalev_eachrun_setup import *
 
 workspace_data = setup_workspace()
 # action_prompt_templates = setup_action_prompt_templates(workspace_data["action_prompts_path"])
