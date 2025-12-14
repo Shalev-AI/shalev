@@ -1,7 +1,7 @@
 import subprocess
 import os
 from pprint import pprint
-from ..shalev_setup import *
+from ..shalev_eachrun_setup import *
 
 
 def compose_action(shalev_project: ShalevProject):
@@ -53,10 +53,12 @@ def process_file(file_path, processed_files=None):
     
     complete_text = []
     
+
     with open(file_path, 'r') as f:
         for line in f:
             # Check for the include statement
             if line.startswith('!!!>include(') and line.endswith(')\n'):
+
                 # Extract the file to be included
                 included_file = line[len('!!!>include('):-2].strip()
                 

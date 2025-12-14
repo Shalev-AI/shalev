@@ -7,6 +7,9 @@ setup(
     packages=find_packages(where="src"),
     install_requires=[
         'click',
+        'openai',
+        'PyYAML',
+        'yaspin'
         # ...other dependencies
     ],
     entry_points={
