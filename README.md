@@ -50,17 +50,19 @@ where `foo` is a different component name. Note also that one component is calle
 
 All components are included via a tree structure from `root`, and (typically) every component is included only once.  
 
-This structure then allows the main action of the SCF, **compile** to execute. The basics of this action is to construct all of the components into one source file, e.g. a valid complete LaTeX file, and then produce output via LaTeX compilation. Via the CLI this is just executed as,
+This structure then allows the main action of the SCF, **compose** to execute. The basics of this action is to construct all of the components into one source file, e.g. a valid complete LaTeX file, and then produce output via LaTeX compilation. Via the CLI this is just executed as,
 
 ```
-shalev compile
+shalev compose <project>
 ```
+
+where `<project>` is the name of the project as defined in your workspace configuration.
 
 Note that while some actions come with the Shalev CLI, most actions are project specific. YAML specification for all actions is stored in the `actions` folder which has the `SCF` and `SAF` subfolders. So for example for `compile`, there is the `compile.py` file inside `actions/SCF` and this script would first use another action which comes with the Shalev Python package, `composeproject`, and then execute LaTeX (pandoc or similar) on the intermediate composed project (where all sub components were included). Note that there is also a `tmp` folder where intermediate files are stored.
 
 ## Actions of the SAF
 
-SAF actions are what makes Shalev useful and effective. These actions apply LLM-Agents on components to iterate them and improve them. Many mundane editing tasks are automated via SAF actions. An action modifies a single component, where sometimes the `body.txt` file is modified and sometimes the `metadata.json` file is modified, and sometimes both. But actions can be `-r` (recursive) in which case sub components are modified as well.
+SAF actions are what makes Shalev useful and effective. These actions apply LLM-Agents on components to iterate them and improve them. Many mundane editing tasks are automated via SAF actions. An action modifies a single component, where sometimes the `body.txt` file is modified and sometimes the `metadata.json` file is modified, and sometimes both.
 
 SAF actions are stored in the `actions/SAF` folder. Here are a few actions, **general_proofread**, **transform_code**, **apply_comments**, and a few more. 
 
@@ -69,18 +71,18 @@ The specification of these actions and how they related different components is 
 For example,
 
 ```
-shalev general_proofread root -r
+shalev agent general_proofread myproject~root
 ```
 
-applies a general proofread to the root component with proofreading applied to all sub components (the whole project) recursively. Proof reading content is then recorded in the metadata file of each component. 
+applies a general proofread to the `root` component in `myproject`. Proofreading content is then recorded in the metadata file of the component.
 
 Or,
 
 ```
-shalev transform_julia_to_python example_normal_dist_julia example_normal_dist_python
+shalev agent transform_julia_to_python myproject~example_normal_dist_julia myproject~example_normal_dist_python
 ```
 
-applies a specific action called `transform_julia_to_python` which translates Julia code to Python code. It takes the component `example_normal_dist_julia` as input and the component `example_normal_dist_python` as an output component.
+applies a specific action called `transform_julia_to_python` which translates Julia code to Python code. It takes the component `example_normal_dist_julia` as the source and `example_normal_dist_python` as the destination component. Note the `project~component` format where the project name and component name are separated by a tilde (`~`).
 
 There are many more useful actions, some of which come with Shalev and others can be customized in the project.
 
@@ -90,49 +92,17 @@ A Shalev project has the `config` folder which has files that specify certain se
 
 ## Installation
 
-Currently execution is via a bash script (tested on Mac).
+See Developer install below.
 
-1. Clone the repo.
-1. `chmod +x shalev`
-1. `export PATH="$(pwd):$PATH"`
+## Shalev CLI Commands
 
-
-## Misc
+The Shalev CLI has four main commands:
 
 ```
-export SHALEV_WORKSPACE="$(pwd)/example_workspace"
-```
-
-Within project
-Across projects
-
-Within component
-Across components
-
-
-Action on single component. 
-
-Action can be unrolling or not. 
-
-
-## More spec Shalev CLI
-
-There are three main command roots:
-
-```
-shalev compose ...
-```
-
-```
-shalev agent ...
-```
-
-```
-shalev config ...
-```
-
-```
-shalev status ...
+shalev compose <project>        # Compose components into a document
+shalev agent <action> <project~component>...  # Run LLM agent actions
+shalev config [-w <workspace>]  # View or set workspace configuration
+shalev status                   # Display workspace status
 ```
 
 ## Developer install
