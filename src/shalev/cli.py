@@ -45,7 +45,7 @@ from shalev.agent_actions import *
 from shalev.compose_actions import *
 from shalev.shalev_eachrun_setup import *
 
-workspace_data = setup_workspace()
+# workspace_data is lazily loaded by commands that need it
 # action_prompt_templates = setup_action_prompt_templates(workspace_data["action_prompts_path"])
 
 @click.group()
@@ -60,6 +60,7 @@ def cli():
 @click.argument('project')
 # @click.option('--project', default=".", help="Project name or path (default: current directory)")
 def compose(project):
+    workspace_data = setup_workspace()
     logging.info(f"Running compose on project: {project}")
     compose_action(workspace_data.projects[project])
 
@@ -70,6 +71,7 @@ def compose(project):
 @click.argument('action')
 @click.argument('projcomps', nargs=-1)
 def agent(action, projcomps):
+    workspace_data = setup_workspace()
     logging.info(f"Agent action '{action}' on: {projcomps}")
 
     for projcomp in projcomps:
@@ -93,8 +95,10 @@ def agent(action, projcomps):
 # shalev config #
 #################
 @click.command()
-def config():
-    logging.info("Running config...")
+@click.option('-w', '--workspace', help="Set workspace folder path")
+def config(workspace):
+    from shalev.shalev_config import config as config_func
+    config_func(workspace)
 
 #################
 # shalev status #
@@ -102,6 +106,8 @@ def config():
 @click.command()
 # @click.option('--long', is_flag=True, help="Show full status.")
 def status():
+    workspace_data = setup_workspace()
+    print("QQQQQQQQQ")
     logging.info("Displaying status")
 
     pprint(workspace_data)

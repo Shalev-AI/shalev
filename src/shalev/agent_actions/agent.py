@@ -7,15 +7,22 @@ import yaml
 from pprint import pprint
 from yaspin import yaspin
 from typing import List
-from shalev.shalev_setup import ShalevWorkspace  # <-- adjust path if needed
+from shalev.shalev_eachrun_setup import ShalevWorkspace  # <-- adjust path if needed
 
 SIZE_LIMIT = 30000
 
-try:
-    client = OpenAI()
-except:
-    print(f"Problem with OpenAI client - check API key.", file=sys.stderr)
-    sys.exit(1)
+# Lazy load the OpenAI client
+_client = None
+
+def get_client():
+    global _client
+    if _client is None:
+        try:
+            _client = OpenAI()
+        except:
+            print(f"Problem with OpenAI client - check API key.", file=sys.stderr)
+            sys.exit(1)
+    return _client
 
 @dataclass
 class ActionPrompt:
@@ -56,7 +63,7 @@ def agent_action_single_component(workspace_data: ShalevWorkspace, action_handle
     messages = make_LLM_messages_single_component(action_prompt, component_text)
     try:
         with yaspin(text="Waiting for LLM response...") as spinner:
-            response = client.chat.completions.create(model="gpt-4o",messages=messages)
+            response = get_client().chat.completions.create(model="gpt-4o",messages=messages)
     except Exception as e:
         print(f"OpenAI API error: {e}")
         sys.exit(1)
@@ -99,7 +106,7 @@ def agent_action_source_and_dest_components(workspace_data: ShalevWorkspace,
     messages = make_LLM_messages_source_and_dest_components(action_prompt, source_component_text, dest_component_text)
     try:
         with yaspin(text="Waiting for LLM response...") as spinner:
-            response = client.chat.completions.create(model="gpt-4o",messages=messages)
+            response = get_client().chat.completions.create(model="gpt-4o",messages=messages)
     except Exception as e:
         print(f"OpenAI API error: {e}")
         sys.exit(1)
