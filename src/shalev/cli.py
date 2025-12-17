@@ -44,12 +44,17 @@ def setup_logging(log_file="shalev_log.jsonl"):
 from shalev.agent_actions import *
 from shalev.compose_actions import *
 from shalev.shalev_eachrun_setup import *
+from shalev.shalev_config import get_aliases, save_alias, config as config_func
 
 # workspace_data is lazily loaded by commands that need it
 # action_prompt_templates = setup_action_prompt_templates(workspace_data["action_prompts_path"])
 
 @click.group()
 def cli():
+    """Shalev - AI-powered document composition tool.
+
+    Manage projects, compose documents from components, and run LLM agent actions.
+    """
     pass
 
 
@@ -72,6 +77,19 @@ def compose(project):
 @click.argument('projcomps', nargs=-1)
 def agent(action, projcomps):
     workspace_data = setup_workspace()
+
+    # Resolve aliases
+    aliases = get_aliases()
+    resolved_projcomps = []
+    for pc in projcomps:
+        if pc in aliases:
+            resolved = aliases[pc]
+            click.echo(f"Using alias '{pc}' -> '{resolved}'")
+            resolved_projcomps.append(resolved)
+        else:
+            resolved_projcomps.append(pc)
+    projcomps = tuple(resolved_projcomps)
+
     logging.info(f"Agent action '{action}' on: {projcomps}")
 
     for projcomp in projcomps:
@@ -97,7 +115,6 @@ def agent(action, projcomps):
 @click.command()
 @click.option('-w', '--workspace', help="Set workspace folder path")
 def config(workspace):
-    from shalev.shalev_config import config as config_func
     config_func(workspace)
 
 #################
@@ -111,6 +128,39 @@ def status():
     logging.info("Displaying status")
 
     pprint(workspace_data)
+
+################
+# shalev alias #
+################
+@click.command()
+@click.argument('short_name', required=False)
+@click.argument('full_component', required=False)
+@click.option('--list', '-l', 'list_aliases', is_flag=True, help="List all aliases")
+def alias(short_name, full_component, list_aliases):
+    """Create or list component aliases.
+
+    Usage:
+      shalev alias <short_name> <full_component>  - Create an alias
+      shalev alias --list                         - List all aliases
+    """
+    if list_aliases:
+        aliases = get_aliases()
+        if not aliases:
+            click.echo("No aliases configured.")
+        else:
+            click.echo("Configured aliases:")
+            for name, component in aliases.items():
+                click.echo(f"  {name} -> {component}")
+        return
+
+    if short_name is None or full_component is None:
+        raise click.UsageError("Both short_name and full_component are required. Use --list to see aliases.")
+
+    if '~' not in full_component:
+        raise click.UsageError(f"full_component must contain '~' (format: project~component)")
+
+    save_alias(short_name, full_component)
+    click.echo(f"Alias saved: {short_name} -> {full_component}")
     # if long:
     #     pprint(workspace_data)
     #     pprint(action_prompt_templates)
@@ -125,6 +175,7 @@ cli.add_command(compose)
 cli.add_command(agent)
 cli.add_command(status)
 cli.add_command(config)
+cli.add_command(alias)
 
 def main():
     setup_logging()

@@ -2,19 +2,47 @@ import os
 import sys
 import yaml
 
+CONFIG_FILE = ".shalev.yaml"
+
+
+def get_aliases():
+    """Read aliases from .shalev.yaml, returns empty dict if none exist."""
+    if not os.path.exists(CONFIG_FILE):
+        return {}
+    with open(CONFIG_FILE, 'r') as f:
+        config_data = yaml.safe_load(f) or {}
+    return config_data.get('aliases', {})
+
+
+def save_alias(short_name, full_component):
+    """Add or update an alias in .shalev.yaml."""
+    if not os.path.exists(CONFIG_FILE):
+        print(f"Error: {CONFIG_FILE} not found. Run 'shalev config -w <workspace>' first.", file=sys.stderr)
+        sys.exit(1)
+
+    with open(CONFIG_FILE, 'r') as f:
+        config_data = yaml.safe_load(f) or {}
+
+    if 'aliases' not in config_data:
+        config_data['aliases'] = {}
+
+    config_data['aliases'][short_name] = full_component
+
+    with open(CONFIG_FILE, 'w') as f:
+        yaml.dump(config_data, f, default_flow_style=False)
+
+
 def config(workspace_folder=None):
     """Initialize or display Shalev configuration."""
-    config_file = ".shalev.yaml"
-
     if workspace_folder is None:
         # Display current config
-        if os.path.exists(config_file):
-            with open(config_file, 'r') as f:
+        if os.path.exists(CONFIG_FILE):
+            with open(CONFIG_FILE, 'r') as f:
                 config_data = yaml.safe_load(f)
-                print(f"Current configuration in {config_file}:")
+                print(f"Current configuration in {CONFIG_FILE}:")
                 print(yaml.dump(config_data, default_flow_style=False))
         else:
-            print(f"No {config_file} found.")
+            print(f"No {CONFIG_FILE} found.")
             print(f"Usage: shalev config -w <workspace_folder>")
             sys.exit(1)
     else:
@@ -32,11 +60,11 @@ def config(workspace_folder=None):
             print(f"Warning: workspace_config.yaml not found in '{workspace_folder}'", file=sys.stderr)
             print(f"Make sure your workspace folder contains a workspace_config.yaml file.", file=sys.stderr)
 
-        # Create or update .shalev.yaml
+        # Create or update config file
         config_data = {"workspace_folder": workspace_folder}
 
-        with open(config_file, 'w') as f:
+        with open(CONFIG_FILE, 'w') as f:
             yaml.dump(config_data, f, default_flow_style=False)
 
-        print(f"✓ Created {config_file}")
+        print(f"Created {CONFIG_FILE}")
         print(f"  workspace_folder: {workspace_folder}")
