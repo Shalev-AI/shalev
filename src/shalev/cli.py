@@ -1,5 +1,6 @@
 import click
 import logging
+import os
 from pprint import pprint
 from datetime import datetime
 import json
@@ -75,7 +76,8 @@ def compose(project):
 @click.command()
 @click.argument('action')
 @click.argument('projcomps', nargs=-1)
-def agent(action, projcomps):
+@click.option('--all', 'all_ext', default=None, help="Run action on all files with given extension (e.g., .jl) in the folder")
+def agent(action, projcomps, all_ext):
     workspace_data = setup_workspace()
 
     # Resolve aliases
@@ -95,6 +97,43 @@ def agent(action, projcomps):
     for projcomp in projcomps:
         if projcomp.count('~') != 1:
             raise click.UsageError(f"'{projcomp}' is missing '~'. Format should be project~component")
+
+    # Handle --all mode: find all files with extension in folder
+    if all_ext is not None:
+        if len(projcomps) != 1:
+            raise click.UsageError("--all mode requires exactly one project~folder argument")
+
+        project, folder = projcomps[0].split('~', 1)
+        if project not in workspace_data.projects:
+            raise click.UsageError(f"Project '{project}' not found")
+
+        folder_path = os.path.join(workspace_data.projects[project].components_folder, folder)
+        if not os.path.isdir(folder_path):
+            raise click.UsageError(f"Folder not found: {folder_path}")
+
+        # Find all files with the given extension
+        ext = all_ext if all_ext.startswith('.') else '.' + all_ext
+        matching_files = [f for f in os.listdir(folder_path)
+                         if f.endswith(ext) and os.path.isfile(os.path.join(folder_path, f))]
+
+        if not matching_files:
+            click.echo(f"No files with extension '{ext}' found in {folder_path}")
+            return
+
+        click.echo(f"Found {len(matching_files)} file(s) with extension '{ext}':")
+        for f in matching_files:
+            click.echo(f"  - {f}")
+        click.echo()
+
+        for i, filename in enumerate(matching_files, 1):
+            component = os.path.join(folder, filename)
+            click.echo(f"[{i}/{len(matching_files)}] Processing: {component}")
+            agent_action_single_component(workspace_data, action, project, component)
+            click.echo()
+
+        click.echo(f"Completed processing {len(matching_files)} file(s).")
+        return
+
     if len(projcomps) == 0:
         raise click.UsageError(f"Need at least one project~component pair")
     elif len(projcomps) == 1:
