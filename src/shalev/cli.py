@@ -205,7 +205,6 @@ def config(workspace):
 # @click.option('--long', is_flag=True, help="Show full status.")
 def status():
     workspace_data = setup_workspace()
-    print("QQQQQQQQQ")
     logging.info("Displaying status")
 
     pprint(workspace_data)
