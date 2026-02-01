@@ -294,8 +294,14 @@ def view(project):
 ###############
 # shalev tree #
 ###############
-def build_tree(file_path):
+def build_tree(file_path, processed_files=None):
     """Parse include statements and return list of (name, subtree) tuples."""
+    if processed_files is None:
+        processed_files = set()
+    if file_path in processed_files:
+        return []
+    processed_files.add(file_path)
+
     children = []
     try:
         with open(file_path, 'r') as f:
@@ -303,14 +309,8 @@ def build_tree(file_path):
                 if line.startswith('!!!>include(') and line.rstrip().endswith(')'):
                     included = line[len('!!!>include('):line.rstrip().rindex(')')].strip()
                     included_path = os.path.join(os.path.dirname(file_path), included)
-                    # Derive component name from path (parent directory of body.txt files)
-                    parts = included.replace('\\', '/').split('/')
-                    if len(parts) >= 2:
-                        name = parts[-2]
-                    else:
-                        name = os.path.splitext(parts[-1])[0]
-                    subtree = build_tree(included_path)
-                    children.append((name, subtree))
+                    subtree = build_tree(included_path, processed_files)
+                    children.append((included, subtree))
     except FileNotFoundError:
         pass
     return children
@@ -336,7 +336,7 @@ def tree(project):
     project = resolve_project(workspace_data, project)
     proj = workspace_data.projects[project]
     root_path = proj.root_component
-    root_name = os.path.basename(os.path.dirname(root_path))
+    root_name = os.path.basename(root_path)
     children = build_tree(root_path)
     print_tree(root_name, children)
 
