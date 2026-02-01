@@ -91,6 +91,7 @@ shalev compose [<project>]                            # Compose components into 
 shalev view [<project>]                               # Open the composed PDF
 shalev tree [<project>]                               # Display the component include tree
 shalev agent <action> <project~component>...          # Run LLM agent actions (component without ~ uses default project)
+shalev agent --list                                   # List all available actions
 shalev default-project [<handle>]                     # View or set the default project
 shalev config [-w <workspace>]                        # View or set workspace configuration
 shalev status                                         # Display workspace status

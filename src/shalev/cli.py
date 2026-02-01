@@ -107,11 +107,31 @@ def compose(project):
 # shalev agent #
 ################
 @click.command()
-@click.argument('action')
+@click.argument('action', required=False, default=None)
 @click.argument('projcomps', nargs=-1)
 @click.option('--all', 'all_ext', default=None, help="Run action on all files with given extension (e.g., .jl) in the folder")
-def agent(action, projcomps, all_ext):
+@click.option('--list', '-l', 'list_actions', is_flag=True, help="List all available actions")
+def agent(action, projcomps, all_ext, list_actions):
     workspace_data = setup_workspace()
+
+    if list_actions:
+        from shalev.agent_actions.agent import load_agent_configs_from_folder
+        agent_configs = load_agent_configs_from_folder(workspace_data.action_prompts_folder)
+        if not agent_configs:
+            click.echo("No actions found.")
+            return
+        click.echo(f"Available actions ({len(agent_configs)}):\n")
+        for name, prompt in agent_configs.items():
+            click.echo(f"  {name}")
+            system_content = prompt.system_prompt.get("content", "").strip()
+            if system_content:
+                for line in system_content.splitlines():
+                    click.echo(f"    {line}")
+            click.echo()
+        return
+
+    if action is None:
+        raise click.UsageError("Missing argument 'ACTION'. Use --list to see available actions.")
 
     # Resolve aliases
     aliases = get_aliases()
