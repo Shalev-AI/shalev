@@ -76,13 +76,16 @@ See Developer install below.
 
 ## Shalev CLI Commands
 
-The Shalev CLI has four main commands:
+The Shalev CLI has the following commands:
 
 ```
-shalev compose <project>        # Compose components into a document
+shalev compose <project>                      # Compose components into a document
+shalev view <project>                         # Open the composed PDF
 shalev agent <action> <project~component>...  # Run LLM agent actions
-shalev config [-w <workspace>]  # View or set workspace configuration
-shalev status                   # Display workspace status
+shalev config [-w <workspace>]                # View or set workspace configuration
+shalev status                                 # Display workspace status
+shalev alias <short_name> <project~component> # Create a component alias
+shalev alias --list                           # List all aliases
 ```
 
 ## Developer install
