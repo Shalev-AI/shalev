@@ -36,7 +36,7 @@ This structure then allows the main action of the SCF, **compose** to execute. T
 shalev compose <project>
 ```
 
-where `<project>` is the name of the project as defined in your workspace configuration.
+where `<project>` is the name of the project as defined in your workspace configuration. The project argument is optional: if the workspace has a single project it is auto-selected, and if a default project is set via `shalev default-project` it is used.
 
 Note that while some actions come with the Shalev CLI, most actions are project specific. YAML specification for all actions is stored in the `actions` folder which has the `SCF` and `SAF` subfolders. So for example for `compile`, there is the `compile.py` file inside `actions/SCF` and this script would first use another action which comes with the Shalev Python package, `composeproject`, and then execute LaTeX (pandoc or similar) on the intermediate composed project (where all sub components were included). Note that there is also a `tmp` folder where intermediate files are stored.
 
@@ -62,7 +62,7 @@ Or,
 shalev agent transform_julia_to_python myproject~example_normal_dist_julia myproject~example_normal_dist_python
 ```
 
-applies a specific action called `transform_julia_to_python` which translates Julia code to Python code. It takes the component `example_normal_dist_julia` as the source and `example_normal_dist_python` as the destination component. Note the `project~component` format where the project name and component name are separated by a tilde (`~`).
+applies a specific action called `transform_julia_to_python` which translates Julia code to Python code. It takes the component `example_normal_dist_julia` as the source and `example_normal_dist_python` as the destination component. Note the `project~component` format where the project name and component name are separated by a tilde (`~`). If a default project is set (via `shalev default-project`), you can omit the project prefix and just write the component name.
 
 There are many more useful actions, some of which come with Shalev and others can be customized in the project.
 
@@ -79,9 +79,10 @@ See Developer install below.
 The Shalev CLI has the following commands:
 
 ```
-shalev compose <project>                      # Compose components into a document
-shalev view <project>                         # Open the composed PDF
-shalev agent <action> <project~component>...  # Run LLM agent actions
+shalev compose [<project>]                    # Compose components into a document
+shalev view [<project>]                       # Open the composed PDF
+shalev agent <action> <project~component>...  # Run LLM agent actions (component without ~ uses default project)
+shalev default-project [<handle>]             # View or set the default project
 shalev config [-w <workspace>]                # View or set workspace configuration
 shalev status                                 # Display workspace status
 shalev alias <short_name> <project~component> # Create a component alias

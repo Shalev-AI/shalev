@@ -32,6 +32,30 @@ def save_alias(short_name, full_component):
         yaml.dump(config_data, f, default_flow_style=False)
 
 
+def get_default_project():
+    """Read default project from .shalev.yaml, returns None if not set."""
+    if not os.path.exists(CONFIG_FILE):
+        return None
+    with open(CONFIG_FILE, 'r') as f:
+        config_data = yaml.safe_load(f) or {}
+    return config_data.get('default_project', None)
+
+
+def save_default_project(project_handle):
+    """Set the default project in .shalev.yaml."""
+    if not os.path.exists(CONFIG_FILE):
+        print(f"Error: {CONFIG_FILE} not found. Run 'shalev config -w <workspace>' first.", file=sys.stderr)
+        sys.exit(1)
+
+    with open(CONFIG_FILE, 'r') as f:
+        config_data = yaml.safe_load(f) or {}
+
+    config_data['default_project'] = project_handle
+
+    with open(CONFIG_FILE, 'w') as f:
+        yaml.dump(config_data, f, default_flow_style=False)
+
+
 def config(workspace_folder=None):
     """Initialize or display Shalev configuration."""
     if workspace_folder is None:

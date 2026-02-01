@@ -46,7 +46,7 @@ def setup_logging(log_file="shalev_log.jsonl"):
 from shalev.agent_actions import *
 from shalev.compose_actions import *
 from shalev.shalev_eachrun_setup import *
-from shalev.shalev_config import get_aliases, save_alias, config as config_func
+from shalev.shalev_config import get_aliases, save_alias, get_default_project, save_default_project, config as config_func
 
 # workspace_data is lazily loaded by commands that need it
 # action_prompt_templates = setup_action_prompt_templates(workspace_data["action_prompts_path"])
@@ -78,6 +78,14 @@ def resolve_project(workspace_data, project):
         project = available[0]
         click.echo(f"Single project in workspace, using: {project}")
         return project
+
+    default = get_default_project()
+    if default is not None:
+        if default not in workspace_data.projects:
+            click.echo(f"Error: default project '{default}' not found in workspace. Available projects: {', '.join(available)}")
+            sys.exit(1)
+        click.echo(f"Using default project: {default}")
+        return default
 
     click.echo(f"Multiple projects in workspace. Please specify one: {', '.join(available)}")
     sys.exit(1)
@@ -117,11 +125,19 @@ def agent(action, projcomps, all_ext):
             resolved_projcomps.append(pc)
     projcomps = tuple(resolved_projcomps)
 
-    logging.info(f"Agent action '{action}' on: {projcomps}")
+    # Resolve bare components (no ~) using default project
+    fully_resolved = []
+    for pc in projcomps:
+        if '~' not in pc:
+            default_proj = resolve_project(workspace_data, None)
+            fully_resolved.append(f"{default_proj}~{pc}")
+        else:
+            if pc.count('~') != 1:
+                raise click.UsageError(f"'{pc}' has too many '~'. Format should be project~component")
+            fully_resolved.append(pc)
+    projcomps = tuple(fully_resolved)
 
-    for projcomp in projcomps:
-        if projcomp.count('~') != 1:
-            raise click.UsageError(f"'{projcomp}' is missing '~'. Format should be project~component")
+    logging.info(f"Agent action '{action}' on: {projcomps}")
 
     # Handle --all mode: find all files with extension in folder
     if all_ext is not None:
@@ -232,6 +248,35 @@ def alias(short_name, full_component, list_aliases):
     #     workspace_status(workspace_data, action_prompt_templates)
 
 
+##########################
+# shalev default-project #
+##########################
+@click.command('default-project')
+@click.argument('project', required=False, default=None)
+def default_project(project):
+    """View or set the default project.
+
+    Usage:
+      shalev default-project              - Show current default project
+      shalev default-project <handle>     - Set default project
+    """
+    if project is None:
+        default = get_default_project()
+        if default is None:
+            click.echo("No default project set.")
+        else:
+            click.echo(f"Default project: {default}")
+        return
+
+    workspace_data = setup_workspace()
+    available = list(workspace_data.projects.keys())
+    if project not in workspace_data.projects:
+        click.echo(f"Error: project '{project}' not found. Available projects: {', '.join(available)}")
+        sys.exit(1)
+
+    save_default_project(project)
+    click.echo(f"Default project set to: {project}")
+
 ###############
 # shalev view #
 ###############
@@ -254,6 +299,7 @@ cli.add_command(agent)
 cli.add_command(status)
 cli.add_command(config)
 cli.add_command(alias)
+cli.add_command(default_project)
 cli.add_command(view)
 
 def main():
