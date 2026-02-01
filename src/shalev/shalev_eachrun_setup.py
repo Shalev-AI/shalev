@@ -38,9 +38,6 @@ def add_prefix_to_workspace_folders(ws: ShalevWorkspace, prefix: str):
     ws.action_prompts_folder = os.path.join(prefix, ws.action_prompts_folder)
     return ws
 
-class FolderStructureError(Exception):
-    pass
-
 def workspace_from_dict(data: dict, workspace_folder: str) -> ShalevWorkspace:
     ws = data['workspace']
     projects_list = [add_prefix_to_project_folders(ShalevProject(**proj), workspace_folder) for proj in ws['projects']]
@@ -53,7 +50,7 @@ def workspace_from_dict(data: dict, workspace_folder: str) -> ShalevWorkspace:
         workspace_system_prompts = ws['workspace_system_prompts']
     ), workspace_folder)
 
-def check_workspace_data_valid(workspace_data: ShalevWorkspace):
+def check_workspace_data_valid(workspace_data: ShalevWorkspace) -> List[str]:
     folders_to_check = []
     folders_to_check.append(workspace_data.action_prompts_folder)
     for project in workspace_data.projects.values():
@@ -64,10 +61,7 @@ def check_workspace_data_valid(workspace_data: ShalevWorkspace):
             project.results_folder,
             project.supporting_files_folder,
         ])
-    missing_folders = [path for path in folders_to_check if not os.path.isdir(path)]
-    if missing_folders:
-        msg = "Missing required folders:\n" + "\n".join(missing_folders)
-        raise FolderStructureError(msg)
+    return [path for path in folders_to_check if not os.path.isdir(path)]
 
 def setup_workspace(fn = ".shalev.yaml"):
     try:
@@ -90,12 +84,19 @@ def setup_workspace(fn = ".shalev.yaml"):
             except yaml.YAMLError as e:
                 print("YAML error:", e, file=sys.stderr)
                 sys.exit(1)
-            try:
-                workspace_data = workspace_from_dict(workspace_dict, dot_shalev_dict["workspace_folder"])
-                check_workspace_data_valid(workspace_data)
-            except FolderStructureError as e:
-                print("Folder Structure error:", e, file=sys.stderr)
-                sys.exit(1)
+            workspace_data = workspace_from_dict(workspace_dict, dot_shalev_dict["workspace_folder"])
+            missing_folders = check_workspace_data_valid(workspace_data)
+            if missing_folders:
+                print("Missing required folders:")
+                for folder in missing_folders:
+                    print(f"  {folder}")
+                answer = input("Create these folders? [y/n]: ").strip().lower()
+                if answer == "y":
+                    for folder in missing_folders:
+                        os.makedirs(folder, exist_ok=True)
+                        print(f"  Created: {folder}")
+                else:
+                    sys.exit(1)
             return workspace_data
     except FileNotFoundError:
         print(f"Error: {fn} file does not exist, try:\n\t shalev config -w <workspace folder location>", file=sys.stderr)
