@@ -79,15 +79,16 @@ See Developer install below.
 The Shalev CLI has the following commands:
 
 ```
-shalev compose [<project>]                    # Compose components into a document
-shalev view [<project>]                       # Open the composed PDF
-shalev tree [<project>]                       # Display the component include tree
-shalev agent <action> <project~component>...  # Run LLM agent actions (component without ~ uses default project)
-shalev default-project [<handle>]             # View or set the default project
-shalev config [-w <workspace>]                # View or set workspace configuration
-shalev status                                 # Display workspace status
-shalev alias <short_name> <project~component> # Create a component alias
-shalev alias --list                           # List all aliases
+shalev setup -p <handle> [-p <handle2> ...] [<dir>]  # Set up a new workspace
+shalev compose [<project>]                            # Compose components into a document
+shalev view [<project>]                               # Open the composed PDF
+shalev tree [<project>]                               # Display the component include tree
+shalev agent <action> <project~component>...          # Run LLM agent actions (component without ~ uses default project)
+shalev default-project [<handle>]                     # View or set the default project
+shalev config [-w <workspace>]                        # View or set workspace configuration
+shalev status                                         # Display workspace status
+shalev alias <short_name> <project~component>         # Create a component alias
+shalev alias --list                                   # List all aliases
 ```
 
 ## Developer install

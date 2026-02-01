@@ -6,6 +6,7 @@ from datetime import datetime
 import json
 import sys
 import subprocess
+import yaml
 
 #################
 # logging setup #
@@ -341,6 +342,100 @@ def tree(project):
     print_tree(root_name, children)
 
 
+################
+# shalev setup #
+################
+@click.command()
+@click.option('--project', '-p', 'projects', multiple=True, help="Project handle (repeatable)")
+@click.argument('directory', default='.')
+def setup(projects, directory):
+    """Set up a new Shalev workspace with one or more projects."""
+    if not projects:
+        click.echo("Error: at least one --project/-p is required.")
+        click.echo("Usage: shalev setup --project <handle> [--project <handle2> ...] [<directory>]")
+        sys.exit(1)
+
+    directory = os.path.abspath(directory)
+    config_path = os.path.join(directory, 'workspace_config.yaml')
+
+    if os.path.exists(config_path):
+        click.echo(f"Error: {config_path} already exists. Aborting.")
+        sys.exit(1)
+
+    workspace_name = os.path.basename(directory)
+
+    project_entries = []
+    for handle in projects:
+        project_entries.append({
+            'name': handle.capitalize(),
+            'project_handle': handle,
+            'description': '',
+            'project_folder': f'{handle}_project',
+            'components_folder': 'components',
+            'root_component': 'root.tex',
+            'supporting_files_folder': 'supporting_files',
+            'results_folder': 'results',
+            'build_folder': 'build',
+        })
+
+    config_data = {
+        'workspace': {
+            'name': workspace_name,
+            'description': '',
+            'action_prompts_folder': './action_prompts',
+            'projects': project_entries,
+            'workspace_system_prompts': {},
+        }
+    }
+
+    os.makedirs(directory, exist_ok=True)
+    with open(config_path, 'w') as f:
+        yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
+    click.echo(f"Created {config_path}")
+
+    # Create action_prompts folder
+    action_prompts_dir = os.path.join(directory, 'action_prompts')
+    os.makedirs(action_prompts_dir, exist_ok=True)
+    click.echo(f"Created {action_prompts_dir}")
+
+    # Create project directories and root.tex
+    build_folders = []
+    for entry in project_entries:
+        handle = entry['project_handle']
+        project_dir = os.path.join(directory, entry['project_folder'])
+        for subfolder in ['components', 'supporting_files', 'results', 'build']:
+            path = os.path.join(project_dir, subfolder)
+            os.makedirs(path, exist_ok=True)
+            click.echo(f"Created {path}")
+        # Create empty root.tex
+        root_tex = os.path.join(project_dir, 'components', 'root.tex')
+        if not os.path.exists(root_tex):
+            open(root_tex, 'w').close()
+            click.echo(f"Created {root_tex}")
+        build_folders.append(f"{entry['project_folder']}/build")
+
+    # Check .gitignore for build folders
+    gitignore_path = os.path.join(directory, '.gitignore')
+    missing_entries = []
+    if os.path.exists(gitignore_path):
+        with open(gitignore_path, 'r') as f:
+            gitignore_content = f.read()
+        for bf in build_folders:
+            if bf not in gitignore_content:
+                missing_entries.append(bf)
+    else:
+        missing_entries = build_folders
+
+    if missing_entries:
+        click.echo("")
+        click.echo("Warning: consider adding the following build folders to .gitignore:")
+        for bf in missing_entries:
+            click.echo(f"  {bf}")
+
+    click.echo("")
+    click.echo(f"Workspace '{workspace_name}' set up with {len(projects)} project(s): {', '.join(projects)}")
+
+
 ###########################
 # putting it all together #
 ###########################
@@ -352,6 +447,7 @@ cli.add_command(alias)
 cli.add_command(default_project)
 cli.add_command(view)
 cli.add_command(tree)
+cli.add_command(setup)
 
 def main():
     setup_logging()
