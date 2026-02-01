@@ -291,6 +291,56 @@ def view(project):
         sys.exit(1)
     subprocess.run(['open', pdf_path])
 
+###############
+# shalev tree #
+###############
+def build_tree(file_path):
+    """Parse include statements and return list of (name, subtree) tuples."""
+    children = []
+    try:
+        with open(file_path, 'r') as f:
+            for line in f:
+                if line.startswith('!!!>include(') and line.rstrip().endswith(')'):
+                    included = line[len('!!!>include('):line.rstrip().rindex(')')].strip()
+                    included_path = os.path.join(os.path.dirname(file_path), included)
+                    # Derive component name from path (parent directory of body.txt files)
+                    parts = included.replace('\\', '/').split('/')
+                    if len(parts) >= 2:
+                        name = parts[-2]
+                    else:
+                        name = os.path.splitext(parts[-1])[0]
+                    subtree = build_tree(included_path)
+                    children.append((name, subtree))
+    except FileNotFoundError:
+        pass
+    return children
+
+
+def print_tree(name, children, prefix="", is_last=True):
+    connector = "└── " if is_last else "├── "
+    if prefix == "":
+        click.echo(name)
+    else:
+        click.echo(prefix + connector + name)
+
+    child_prefix = prefix + ("    " if is_last else "│   ")
+    for i, (child_name, subtree) in enumerate(children):
+        print_tree(child_name, subtree, child_prefix, i == len(children) - 1)
+
+
+@click.command()
+@click.argument('project', required=False, default=None)
+def tree(project):
+    """Display the component include tree for a project."""
+    workspace_data = setup_workspace()
+    project = resolve_project(workspace_data, project)
+    proj = workspace_data.projects[project]
+    root_path = proj.root_component
+    root_name = os.path.basename(os.path.dirname(root_path))
+    children = build_tree(root_path)
+    print_tree(root_name, children)
+
+
 ###########################
 # putting it all together #
 ###########################
@@ -301,6 +351,7 @@ cli.add_command(config)
 cli.add_command(alias)
 cli.add_command(default_project)
 cli.add_command(view)
+cli.add_command(tree)
 
 def main():
     setup_logging()
