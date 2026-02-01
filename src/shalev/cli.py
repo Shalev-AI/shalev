@@ -60,14 +60,37 @@ def cli():
     pass
 
 
+def resolve_project(workspace_data, project):
+    """Resolve and validate the project argument.
+
+    If project is provided, validate it exists. If omitted, auto-select when
+    there's exactly one project, or list available projects and exit otherwise.
+    """
+    available = list(workspace_data.projects.keys())
+
+    if project is not None:
+        if project not in workspace_data.projects:
+            click.echo(f"Error: project '{project}' not found. Available projects: {', '.join(available)}")
+            sys.exit(1)
+        return project
+
+    if len(available) == 1:
+        project = available[0]
+        click.echo(f"Single project in workspace, using: {project}")
+        return project
+
+    click.echo(f"Multiple projects in workspace. Please specify one: {', '.join(available)}")
+    sys.exit(1)
+
+
 ##################
 # shalev compose #
 ##################
 @click.command()
-@click.argument('project')
-# @click.option('--project', default=".", help="Project name or path (default: current directory)")
+@click.argument('project', required=False, default=None)
 def compose(project):
     workspace_data = setup_workspace()
+    project = resolve_project(workspace_data, project)
     logging.info(f"Running compose on project: {project}")
     compose_action(workspace_data.projects[project])
     print(f"To view the output, run: shalev view {project}")
@@ -213,9 +236,10 @@ def alias(short_name, full_component, list_aliases):
 # shalev view #
 ###############
 @click.command()
-@click.argument('project')
+@click.argument('project', required=False, default=None)
 def view(project):
     workspace_data = setup_workspace()
+    project = resolve_project(workspace_data, project)
     pdf_path = os.path.join(workspace_data.projects[project].build_folder, 'composed_project.pdf')
     if not os.path.exists(pdf_path):
         print(f"Error: {pdf_path} does not exist. Run 'shalev compose {project}' first.")
