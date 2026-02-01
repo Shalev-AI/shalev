@@ -9,8 +9,7 @@ setup(
         'click',
         'openai',
         'PyYAML',
-        'yaspin'
-        # ...other dependencies
+        'yaspin',
     ],
     entry_points={
         'console_scripts': [

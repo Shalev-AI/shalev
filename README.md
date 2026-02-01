@@ -107,27 +107,37 @@ shalev status                   # Display workspace status
 
 ## Developer install
 
-Steps for installation:
+### Prerequisites
+
+- Python 3.10+
+- [uv](https://docs.astral.sh/uv/getting-started/installation/)
+
+### Install
 
 ```
 git clone git@github.com:yoninazarathy/shalev.git
 cd shalev
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-pip install -e .
+uv tool install --editable .
 ```
 
-Optional if you don't have a `.shalev.yaml` file:
+This installs `shalev` as a CLI command available globally. The `--editable` flag means any changes you make to the source files take effect on the next run without reinstalling.
+
+If you don't have a `.shalev.yaml` file in your home directory:
 
 ```
 shalev config -w example_workspace
 ```
 
-Now run:
+Verify the installation:
 
 ```
 shalev status
 ```
 
 You should see your `workspace_config.yaml` file.
+
+### Uninstall
+
+```
+uv tool uninstall shalev
+```
