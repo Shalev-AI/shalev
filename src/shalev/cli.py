@@ -5,6 +5,7 @@ from pprint import pprint
 from datetime import datetime
 import json
 import sys
+import subprocess
 
 #################
 # logging setup #
@@ -69,6 +70,7 @@ def compose(project):
     workspace_data = setup_workspace()
     logging.info(f"Running compose on project: {project}")
     compose_action(workspace_data.projects[project])
+    print(f"To view the output, run: shalev view {project}")
 
 ################
 # shalev agent #
@@ -207,6 +209,19 @@ def alias(short_name, full_component, list_aliases):
     #     workspace_status(workspace_data, action_prompt_templates)
 
 
+###############
+# shalev view #
+###############
+@click.command()
+@click.argument('project')
+def view(project):
+    workspace_data = setup_workspace()
+    pdf_path = os.path.join(workspace_data.projects[project].build_folder, 'composed_project.pdf')
+    if not os.path.exists(pdf_path):
+        print(f"Error: {pdf_path} does not exist. Run 'shalev compose {project}' first.")
+        sys.exit(1)
+    subprocess.run(['open', pdf_path])
+
 ###########################
 # putting it all together #
 ###########################
@@ -215,6 +230,7 @@ cli.add_command(agent)
 cli.add_command(status)
 cli.add_command(config)
 cli.add_command(alias)
+cli.add_command(view)
 
 def main():
     setup_logging()
