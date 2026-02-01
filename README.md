@@ -115,7 +115,7 @@ shalev status                   # Display workspace status
 ### Install
 
 ```
-git clone git@github.com:yoninazarathy/shalev.git
+git clone git@github.com:Shalev-AI/shalev.git
 cd shalev
 uv tool install --editable .
 ```
