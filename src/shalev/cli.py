@@ -1,7 +1,6 @@
 import click
 import logging
 import os
-from pprint import pprint
 from datetime import datetime
 import json
 import sys
@@ -202,12 +201,29 @@ def config(workspace):
 # shalev status #
 #################
 @click.command()
-# @click.option('--long', is_flag=True, help="Show full status.")
 def status():
+    """Display workspace status."""
     workspace_data = setup_workspace()
     logging.info("Displaying status")
 
-    pprint(workspace_data)
+    click.echo(f"Workspace: {workspace_data.name}")
+    if workspace_data.description:
+        click.echo(f"  {workspace_data.description.strip()}")
+    click.echo(f"Action prompts: {workspace_data.action_prompts_folder}")
+    if workspace_data.workspace_system_prompts:
+        click.echo(f"System prompts: {workspace_data.workspace_system_prompts}")
+    click.echo("")
+    click.echo(f"Projects ({len(workspace_data.projects)}):")
+    for handle, proj in workspace_data.projects.items():
+        click.echo(f"  [{handle}] {proj.name}")
+        if proj.description:
+            click.echo(f"    {proj.description.strip()}")
+        click.echo(f"    project_folder:        {proj.project_folder}")
+        click.echo(f"    components_folder:      {proj.components_folder}")
+        click.echo(f"    root_component:         {proj.root_component}")
+        click.echo(f"    supporting_files_folder: {proj.supporting_files_folder}")
+        click.echo(f"    results_folder:         {proj.results_folder}")
+        click.echo(f"    build_folder:           {proj.build_folder}")
 
 ################
 # shalev alias #
