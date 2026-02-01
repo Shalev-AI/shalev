@@ -132,10 +132,18 @@ uv tool install --editable .
 
 This installs `shalev` as a CLI command available globally. The `--editable` flag means any changes you make to the source files take effect on the next run without reinstalling.
 
-If you don't have a `.shalev.yaml` file in your home directory:
+### Example workspace
+
+An example LaTeX workspace is available at [Shalev-AI/example-latex-workspace](https://github.com/Shalev-AI/example-latex-workspace). Clone it to try out Shalev:
 
 ```
-shalev config -w example_workspace
+git clone git@github.com:Shalev-AI/example-latex-workspace.git
+```
+
+Then point Shalev at it:
+
+```
+shalev config -w <path-to-example-latex-workspace>
 ```
 
 Verify the installation:
