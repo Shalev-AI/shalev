@@ -76,7 +76,14 @@ See Developer install below.
 
 ## Shalev CLI Commands
 
-The Shalev CLI has the following commands:
+The two main commands used during a document editing workflow are:
+
+```
+shalev compose [<project>]                            # Compose components into a document
+shalev agent <action> <project~component>...          # Run LLM agent actions (component without ~ uses default project)
+```
+
+All available commands:
 
 ```
 shalev setup -p <handle> [-p <handle2> ...] [<dir>]  # Set up a new workspace
