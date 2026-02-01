@@ -109,8 +109,11 @@ shalev status                   # Display workspace status
 
 ### Prerequisites
 
+Only tested on macOS at this stage.
+
 - Python 3.10+
 - [uv](https://docs.astral.sh/uv/getting-started/installation/)
+- pdflatex (install via [MacTeX](https://www.tug.org/mactex/) or `brew install --cask mactex`)
 
 ### Install
 
