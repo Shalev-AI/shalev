@@ -114,6 +114,13 @@ Only tested on macOS at this stage.
 - Python 3.10+
 - [uv](https://docs.astral.sh/uv/getting-started/installation/)
 - pdflatex (install via [MacTeX](https://www.tug.org/mactex/) or `brew install --cask mactex`)
+- An [OpenAI API key](https://platform.openai.com/api-keys) — Shalev currently uses OpenAI for its LLM operations. Set it in your shell before running Shalev:
+
+  ```
+  export OPENAI_API_KEY=<your-key>
+  ```
+
+  Store the key securely (e.g. in your shell profile or a secrets manager) and avoid committing it to version control.
 
 ### Install
 
