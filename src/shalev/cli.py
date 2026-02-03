@@ -331,7 +331,7 @@ def view(project):
 ###############
 # shalev tree #
 ###############
-def build_tree(file_path, processed_files=None):
+def build_tree(file_path, components_folder, processed_files=None):
     """Parse include statements and return list of (name, subtree) tuples."""
     if processed_files is None:
         processed_files = set()
@@ -345,8 +345,8 @@ def build_tree(file_path, processed_files=None):
             for line in f:
                 if line.startswith('!!!>include(') and line.rstrip().endswith(')'):
                     included = line[len('!!!>include('):line.rstrip().rindex(')')].strip()
-                    included_path = os.path.join(os.path.dirname(file_path), included)
-                    subtree = build_tree(included_path, processed_files)
+                    included_path = os.path.join(components_folder, included)
+                    subtree = build_tree(included_path, components_folder, processed_files)
                     children.append((included, subtree))
     except FileNotFoundError:
         pass
@@ -374,7 +374,7 @@ def tree(project):
     proj = workspace_data.projects[project]
     root_path = proj.root_component
     root_name = os.path.basename(root_path)
-    children = build_tree(root_path)
+    children = build_tree(root_path, proj.components_folder)
     print_tree(root_name, children)
 
 
@@ -518,7 +518,8 @@ def split(component, split_type, target, numbered):
         sys.exit(1)
 
     logging.info(f"Splitting '{comp}' on '{split_type}'")
-    split_component(component_path, split_type, target=target, numbered=numbered)
+    split_component(component_path, split_type, target=target, numbered=numbered,
+                    components_folder=workspace_data.projects[project].components_folder)
     click.echo("Done.")
 
 

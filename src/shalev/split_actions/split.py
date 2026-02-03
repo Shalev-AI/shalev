@@ -28,7 +28,7 @@ def extract_title(line, split_type):
     return None
 
 
-def split_component(component_path, split_type, target=None, numbered=False):
+def split_component(component_path, split_type, target=None, numbered=False, components_folder=None):
     """Split a component file at LaTeX commands (e.g. \\section) into sub-components.
 
     The split-type command line (e.g. \\section{Title}) stays in the parent.
@@ -42,6 +42,8 @@ def split_component(component_path, split_type, target=None, numbered=False):
                 If None, sub-components are placed alongside the parent.
         numbered: If set, prefix filenames with a number. Can be True for plain
                   numbering (1_, 2_) or a string prefix (e.g. 'c2' -> c2_1_, c2_2_).
+        components_folder: Root components folder. Include paths are relative to this.
+                           If None, falls back to parent directory of component_path.
     """
     # Ensure split_type starts with backslash (shell may strip it)
     if not split_type.startswith('\\'):
@@ -69,7 +71,9 @@ def split_component(component_path, split_type, target=None, numbered=False):
     component_dir = os.path.dirname(component_path)
     component_ext = os.path.splitext(component_path)[1] or '.tex'
 
-    if target:
+    if target and components_folder:
+        output_dir = os.path.join(components_folder, target)
+    elif target:
         output_dir = os.path.join(component_dir, target)
     else:
         output_dir = component_dir
@@ -125,8 +129,10 @@ def split_component(component_path, split_type, target=None, numbered=False):
             # In parent: keep the split line, add include directive
             new_parent_lines.append(lines[start])
 
-            # Build include path relative to parent's directory
-            if target:
+            # Build include path relative to components folder
+            if components_folder:
+                include_ref = os.path.relpath(sub_path, components_folder)
+            elif target:
                 include_ref = os.path.join(target, filename)
             else:
                 include_ref = filename
