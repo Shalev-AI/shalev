@@ -45,6 +45,7 @@ def setup_logging(log_file="shalev_log.jsonl"):
 
 from shalev.agent_actions import *
 from shalev.compose_actions import *
+from shalev.split_actions import split_component
 from shalev.shalev_eachrun_setup import *
 from shalev.shalev_config import get_aliases, save_alias, get_default_project, save_default_project, config as config_func
 
@@ -471,6 +472,56 @@ def setup(projects, directory):
     click.echo(f"Workspace '{workspace_name}' set up with {len(projects)} project(s): {', '.join(projects)}")
 
 
+################
+# shalev split #
+################
+@click.command()
+@click.argument('component')
+@click.option('--split-type', required=True, help="LaTeX command to split on, e.g. \\\\section")
+@click.option('--target', default=None, help="Subdirectory for sub-component files (relative to component's directory)")
+@click.option('--numbered', is_flag=False, flag_value='', default=None, help="Prefix filenames with a number. Optionally pass a parent prefix, e.g. --numbered c2")
+def split(component, split_type, target, numbered):
+    """Split a component at LaTeX commands into sub-components.
+
+    The split-type line (e.g. \\section{Title}) stays in the parent component.
+    The body below each split point is extracted into a new sub-component file,
+    and an !!!>include() directive is inserted in the parent.
+
+    Example:
+      shalev split chapter.tex --split-type \\\\section
+      shalev split myproj~chapter.tex --split-type \\\\subsection --target sections --numbered
+    """
+    workspace_data = setup_workspace()
+
+    # Resolve aliases
+    aliases = get_aliases()
+    if component in aliases:
+        resolved = aliases[component]
+        click.echo(f"Using alias '{component}' -> '{resolved}'")
+        component = resolved
+
+    # Resolve bare component (no ~) using default project
+    if '~' not in component:
+        project = resolve_project(workspace_data, None)
+        projcomp = f"{project}~{component}"
+    else:
+        projcomp = component
+
+    project, comp = projcomp.split('~', 1)
+    if project not in workspace_data.projects:
+        click.echo(f"Error: project '{project}' not found.")
+        sys.exit(1)
+
+    component_path = os.path.join(workspace_data.projects[project].components_folder, comp)
+    if not os.path.isfile(component_path):
+        click.echo(f"Error: component file not found: {component_path}")
+        sys.exit(1)
+
+    logging.info(f"Splitting '{comp}' on '{split_type}'")
+    split_component(component_path, split_type, target=target, numbered=numbered)
+    click.echo("Done.")
+
+
 ###########################
 # putting it all together #
 ###########################
@@ -483,6 +534,7 @@ cli.add_command(default_project)
 cli.add_command(view)
 cli.add_command(tree)
 cli.add_command(setup)
+cli.add_command(split)
 
 def main():
     setup_logging()
