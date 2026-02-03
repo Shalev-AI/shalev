@@ -57,10 +57,11 @@ def process_file(file_path, components_folder, processed_files=None):
     with open(file_path, 'r') as f:
         for line in f:
             # Check for the include statement
-            if line.startswith('!!!>include(') and line.endswith(')\n'):
+            stripped = line.rstrip()
+            if stripped.startswith('!!!>include(') and stripped.endswith(')'):
 
                 # Extract the file to be included
-                included_file = line[len('!!!>include('):-2].strip()
+                included_file = stripped[len('!!!>include('):-1].strip()
 
                 # Generate the full path relative to the components folder
                 included_file_path = os.path.join(components_folder, included_file)
