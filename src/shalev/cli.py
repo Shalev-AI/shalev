@@ -101,8 +101,8 @@ def compose(project):
     workspace_data = setup_workspace()
     project = resolve_project(workspace_data, project)
     logging.info(f"Running compose on project: {project}")
-    compose_action(workspace_data.projects[project])
-    print(f"To view the output, run: shalev view {project}")
+    if compose_action(workspace_data.projects[project]):
+        print(f"To view the output, run: shalev view {project}")
 
 ################
 # shalev agent #
@@ -350,6 +350,7 @@ def build_tree(file_path, components_folder, processed_files=None):
                     children.append((included, subtree))
     except FileNotFoundError:
         pass
+    processed_files.discard(file_path)
     return children
 
 

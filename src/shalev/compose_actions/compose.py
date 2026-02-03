@@ -26,33 +26,34 @@ def compose_action(shalev_project: ShalevProject):
             if result.returncode == 0:
                 print("LaTeX compilation successful!")
                 print(f"Output document should be in {shalev_project.build_folder}/composed_project.pdf")
+                return True
             else:
                 print("LaTeX compilation failed!")
                 print("Error output:")
                 print(result.stdout)
+                return False
         finally:
             os.chdir(previous_dir)
     except Exception as e:
         print(f"Error: {e}")
-        return None
+        return False
 
 
  
     
 def process_file(file_path, components_folder, processed_files=None):
-    # Initialize the set to track already processed files (to avoid circular includes)
+    # Initialize the set to track the current inclusion chain (to detect circular includes)
     if processed_files is None:
         processed_files = set()
 
-    # Check if the file has already been processed to avoid recursion issues
+    # Check if the file is already in the current inclusion chain
     if file_path in processed_files:
         raise ValueError(f"Circular include detected with file: {file_path}")
 
-    # Add the current file to the processed set
+    # Add the current file to the chain
     processed_files.add(file_path)
 
     complete_text = []
-
 
     with open(file_path, 'r') as f:
         for line in f:
@@ -74,6 +75,9 @@ def process_file(file_path, components_folder, processed_files=None):
             else:
                 # Otherwise, just add the current line
                 complete_text.append(line)
+
+    # Remove from chain so the same file can be included from other branches
+    processed_files.discard(file_path)
 
     return ''.join(complete_text)
 
