@@ -1,6 +1,7 @@
 import click
 import logging
 import os
+import shutil
 from datetime import datetime
 import json
 import sys
@@ -502,6 +503,55 @@ def setup(projects, directory):
 
 
 ################
+# shalev flush #
+################
+@click.command()
+@click.argument('project', required=False, default=None)
+@click.option('--show-shalev-log', is_flag=True, help="Show shalev internal log messages")
+def flush(project, show_shalev_log):
+    """Delete all files in the build folder for a project."""
+    if show_shalev_log:
+        enable_verbose_logging()
+    workspace_data = setup_workspace()
+    project = resolve_project(workspace_data, project)
+    build_folder = workspace_data.projects[project].build_folder
+
+    if not os.path.isdir(build_folder) or not os.listdir(build_folder):
+        click.echo("Build folder is already empty.")
+        return
+
+    # List files that will be deleted
+    click.echo(f"Files in {build_folder}:")
+    for entry in sorted(os.listdir(build_folder)):
+        click.echo(f"  {entry}")
+
+    # Check for git-tracked files
+    try:
+        result = subprocess.run(
+            ['git', 'ls-files', build_folder],
+            capture_output=True, text=True
+        )
+        tracked = result.stdout.strip()
+        if tracked:
+            click.echo("")
+            click.echo("Warning: Some files in the build folder are tracked by git:")
+            for f in tracked.splitlines():
+                click.echo(f"  {f}")
+            click.echo(f"\nTo untrack them, run:\n  git rm -r --cached {build_folder}")
+            click.echo("")
+    except FileNotFoundError:
+        pass  # git not available
+
+    if not click.confirm(f"Delete all files in {build_folder}?"):
+        click.echo("Aborted.")
+        return
+
+    shutil.rmtree(build_folder)
+    os.makedirs(build_folder)
+    click.echo(f"Build folder flushed: {build_folder}")
+
+
+################
 # shalev split #
 ################
 @click.command()
@@ -568,6 +618,7 @@ cli.add_command(view)
 cli.add_command(tree)
 cli.add_command(setup)
 cli.add_command(split)
+cli.add_command(flush)
 
 def main():
     setup_logging()
