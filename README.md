@@ -95,6 +95,7 @@ shalev agent --list                                   # List all available actio
 shalev agent <action> <project~folder> --all <ext>    # Run action on all files with given extension in folder
 shalev split <component> --split-type <cmd>           # Split a component at LaTeX commands into sub-components
 shalev split <component> --split-type <cmd> --target <dir> --numbered [<prefix>]
+shalev flush [<project>]                                # Delete all files in the build folder
 shalev default-project [<handle>]                     # View or set the default project
 shalev config [-w <workspace>]                        # View or set workspace configuration
 shalev status                                         # Display workspace status
