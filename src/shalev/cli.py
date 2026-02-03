@@ -28,18 +28,18 @@ class JSONFileHandler(logging.Handler):
             }
             f.write(json.dumps(json_record) + "\n")
 
-def setup_logging(log_file="shalev_log.jsonl"):
+def setup_logging(log_file="shalev_log.jsonl", show_log=False):
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
+    logger.handlers.clear()
 
-    stream = logging.StreamHandler(sys.stdout)
-    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s", "%H:%M:%S")
-    stream.setFormatter(formatter)
+    if show_log:
+        stream = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s", "%H:%M:%S")
+        stream.setFormatter(formatter)
+        logger.addHandler(stream)
 
     file_handler = JSONFileHandler(log_file)
-    print(file_handler.path)
-    logger.handlers.clear()
-    logger.addHandler(stream)
     logger.addHandler(file_handler)
 
 
@@ -59,6 +59,15 @@ def cli():
     Manage projects, compose documents from components, and run LLM agent actions.
     """
     pass
+
+
+def enable_verbose_logging():
+    """Add a stream handler to show log messages on stdout."""
+    logger = logging.getLogger()
+    stream = logging.StreamHandler(sys.stdout)
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s", "%H:%M:%S")
+    stream.setFormatter(formatter)
+    logger.addHandler(stream)
 
 
 def resolve_project(workspace_data, project):
@@ -98,7 +107,10 @@ def resolve_project(workspace_data, project):
 @click.command()
 @click.argument('project', required=False, default=None)
 @click.option('--show-log', is_flag=True, help="Show full LaTeX compilation log")
-def compose(project, show_log):
+@click.option('--show-shalev-log', is_flag=True, help="Show shalev internal log messages")
+def compose(project, show_log, show_shalev_log):
+    if show_shalev_log:
+        enable_verbose_logging()
     workspace_data = setup_workspace()
     project = resolve_project(workspace_data, project)
     logging.info(f"Running compose on project: {project}")
@@ -113,7 +125,10 @@ def compose(project, show_log):
 @click.argument('projcomps', nargs=-1)
 @click.option('--all', 'all_ext', default=None, help="Run action on all files with given extension (e.g., .jl) in the folder")
 @click.option('--list', '-l', 'list_actions', is_flag=True, help="List all available actions")
-def agent(action, projcomps, all_ext, list_actions):
+@click.option('--show-shalev-log', is_flag=True, help="Show shalev internal log messages")
+def agent(action, projcomps, all_ext, list_actions, show_shalev_log):
+    if show_shalev_log:
+        enable_verbose_logging()
     workspace_data = setup_workspace()
 
     if list_actions:
@@ -223,8 +238,11 @@ def config(workspace):
 # shalev status #
 #################
 @click.command()
-def status():
+@click.option('--show-shalev-log', is_flag=True, help="Show shalev internal log messages")
+def status(show_shalev_log):
     """Display workspace status."""
+    if show_shalev_log:
+        enable_verbose_logging()
     workspace_data = setup_workspace()
     logging.info("Displaying status")
 
@@ -482,7 +500,8 @@ def setup(projects, directory):
 @click.option('--split-type', required=True, help="LaTeX command to split on, e.g. \\\\section")
 @click.option('--target', default=None, help="Subdirectory for sub-component files (relative to component's directory)")
 @click.option('--numbered', is_flag=False, flag_value='', default=None, help="Prefix filenames with a number. Optionally pass a parent prefix, e.g. --numbered c2")
-def split(component, split_type, target, numbered):
+@click.option('--show-shalev-log', is_flag=True, help="Show shalev internal log messages")
+def split(component, split_type, target, numbered, show_shalev_log):
     """Split a component at LaTeX commands into sub-components.
 
     The split-type line (e.g. \\section{Title}) stays in the parent component.
@@ -493,6 +512,8 @@ def split(component, split_type, target, numbered):
       shalev split chapter.tex --split-type \\\\section
       shalev split myproj~chapter.tex --split-type \\\\subsection --target sections --numbered
     """
+    if show_shalev_log:
+        enable_verbose_logging()
     workspace_data = setup_workspace()
 
     # Resolve aliases
