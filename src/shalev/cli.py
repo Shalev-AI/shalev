@@ -110,7 +110,16 @@ def resolve_project(workspace_data, project):
 @click.option('--show-log', is_flag=True, help="Show full LaTeX compilation log")
 @click.option('--show-shalev-log', is_flag=True, help="Show shalev internal log messages")
 def compose(project, show_log, show_shalev_log):
-    """Compose components into a document and compile with LaTeX."""
+    """Compose components into a document and compile with LaTeX.
+
+    Recursively resolves !!!>include() directives starting from the root
+    component, assembles a single LaTeX source file, and compiles it with
+    pdflatex.
+
+    PROJECT is the project handle as defined in workspace_config.yaml. If
+    omitted, auto-selects when there is a single project or uses the default
+    project.
+    """
     if show_shalev_log:
         enable_verbose_logging()
     workspace_data = setup_workspace()
@@ -129,7 +138,21 @@ def compose(project, show_log, show_shalev_log):
 @click.option('--list', '-l', 'list_actions', is_flag=True, help="List all available actions")
 @click.option('--show-shalev-log', is_flag=True, help="Show shalev internal log messages")
 def agent(action, projcomps, all_ext, list_actions, show_shalev_log):
-    """Run an LLM agent action on one or two components."""
+    """Run an LLM agent action on one or two components.
+
+    ACTION is the name of an agent action defined in the workspace's
+    action_prompts folder (use --list to see available actions).
+
+    PROJCOMPS are one or two component references in project~component
+    format. If a default project is set, you can omit the project prefix
+    and just write the component name.
+
+    \b
+    Examples:
+      shalev agent general_proofread myproject~root
+      shalev agent transform myproject~source myproject~dest
+      shalev agent action myproject~folder --all .jl
+    """
     if show_shalev_log:
         enable_verbose_logging()
     workspace_data = setup_workspace()
@@ -235,7 +258,11 @@ def agent(action, projcomps, all_ext, list_actions, show_shalev_log):
 @click.command()
 @click.option('-w', '--workspace', help="Set workspace folder path")
 def config(workspace):
-    """View or set workspace configuration."""
+    """View or set workspace configuration.
+
+    Without options, displays the current workspace path. Use -w to set
+    the workspace folder path.
+    """
     config_func(workspace)
 
 #################
@@ -244,7 +271,11 @@ def config(workspace):
 @click.command()
 @click.option('--show-shalev-log', is_flag=True, help="Show shalev internal log messages")
 def status(show_shalev_log):
-    """Display workspace status."""
+    """Display workspace status.
+
+    Shows the workspace name, description, action prompts folder, and
+    details of each project including folder paths.
+    """
     if show_shalev_log:
         enable_verbose_logging()
     workspace_data = setup_workspace()
@@ -279,9 +310,13 @@ def status(show_shalev_log):
 def alias(short_name, full_component, list_aliases):
     """Create or list component aliases.
 
-    Usage:
-      shalev alias <short_name> <full_component>  - Create an alias
-      shalev alias --list                         - List all aliases
+    Aliases let you refer to frequently used project~component pairs
+    by a short name in agent and split commands.
+
+    \b
+    Examples:
+      shalev alias ch1 myproject~chapter1.tex
+      shalev alias --list
     """
     if list_aliases:
         aliases = get_aliases()
@@ -313,12 +348,18 @@ def alias(short_name, full_component, list_aliases):
 ##########################
 @click.command('default-project')
 @click.argument('project', required=False, default=None)
-def default_project(project):
+@click.option('--show-shalev-log', is_flag=True, help="Show shalev internal log messages")
+def default_project(project, show_shalev_log):
     """View or set the default project.
 
-    Usage:
-      shalev default-project              - Show current default project
-      shalev default-project <handle>     - Set default project
+    When set, the default project is used by commands that accept a
+    PROJECT argument when none is provided, and allows omitting the
+    project~ prefix in component references.
+
+    \b
+    Examples:
+      shalev default-project              Show current default
+      shalev default-project myproject    Set default to myproject
     """
     if project is None:
         default = get_default_project()
@@ -328,6 +369,8 @@ def default_project(project):
             click.echo(f"Default project: {default}")
         return
 
+    if show_shalev_log:
+        enable_verbose_logging()
     workspace_data = setup_workspace()
     available = list(workspace_data.projects.keys())
     if project not in workspace_data.projects:
@@ -342,8 +385,18 @@ def default_project(project):
 ###############
 @click.command()
 @click.argument('project', required=False, default=None)
-def view(project):
-    """Open the composed PDF for a project."""
+@click.option('--show-shalev-log', is_flag=True, help="Show shalev internal log messages")
+def view(project, show_shalev_log):
+    """Open the composed PDF for a project.
+
+    Opens the compiled PDF from the build folder using the system default
+    PDF viewer. Run 'shalev compose' first to generate the PDF.
+
+    PROJECT is optional; auto-selects when there is a single project or
+    uses the default project.
+    """
+    if show_shalev_log:
+        enable_verbose_logging()
     workspace_data = setup_workspace()
     project = resolve_project(workspace_data, project)
     pdf_path = os.path.join(workspace_data.projects[project].build_folder, 'composed_project.pdf')
@@ -392,8 +445,18 @@ def print_tree(name, children, prefix="", is_last=True):
 
 @click.command()
 @click.argument('project', required=False, default=None)
-def tree(project):
-    """Display the component include tree for a project."""
+@click.option('--show-shalev-log', is_flag=True, help="Show shalev internal log messages")
+def tree(project, show_shalev_log):
+    """Display the component include tree for a project.
+
+    Recursively follows !!!>include() directives from the root component
+    and prints the tree structure.
+
+    PROJECT is optional; auto-selects when there is a single project or
+    uses the default project.
+    """
+    if show_shalev_log:
+        enable_verbose_logging()
     workspace_data = setup_workspace()
     project = resolve_project(workspace_data, project)
     proj = workspace_data.projects[project]
@@ -410,7 +473,18 @@ def tree(project):
 @click.option('--project', '-p', 'projects', multiple=True, help="Project handle (repeatable)")
 @click.argument('directory', default='.')
 def setup(projects, directory):
-    """Set up a new Shalev workspace with one or more projects."""
+    """Set up a new Shalev workspace with one or more projects.
+
+    Creates workspace_config.yaml, action_prompts folder, and project
+    directories with components, supporting_files, results, and build
+    subfolders.
+
+    DIRECTORY defaults to the current directory.
+
+    \b
+    Example:
+      shalev setup -p mybook -p mybook2 ./my_workspace
+    """
     if not projects:
         click.echo("Error: at least one --project/-p is required.")
         click.echo("Usage: shalev setup --project <handle> [--project <handle2> ...] [<directory>]")
@@ -509,7 +583,14 @@ def setup(projects, directory):
 @click.argument('project', required=False, default=None)
 @click.option('--show-shalev-log', is_flag=True, help="Show shalev internal log messages")
 def flush(project, show_shalev_log):
-    """Delete all files in the build folder for a project."""
+    """Delete all files in the build folder for a project.
+
+    Lists files before deleting and prompts for confirmation. Warns if
+    any files in the build folder are tracked by git.
+
+    PROJECT is optional; auto-selects when there is a single project or
+    uses the default project.
+    """
     if show_shalev_log:
         enable_verbose_logging()
     workspace_data = setup_workspace()
@@ -563,13 +644,18 @@ def flush(project, show_shalev_log):
 def split(component, split_type, target, numbered, show_shalev_log):
     """Split a component at LaTeX commands into sub-components.
 
+    COMPONENT is a component reference in project~component format, or
+    just a component name if a default project is set. Aliases are resolved.
+
     The split-type line (e.g. \\section{Title}) stays in the parent component.
     The body below each split point is extracted into a new sub-component file,
     and an !!!>include() directive is inserted in the parent.
 
-    Example:
+    \b
+    Examples:
       shalev split chapter.tex --split-type \\\\section
-      shalev split myproj~chapter.tex --split-type \\\\subsection --target sections --numbered
+      shalev split myproj~chapter.tex --split-type \\\\subsection --target sections
+      shalev split chapter.tex --split-type \\\\section --numbered c2
     """
     if show_shalev_log:
         enable_verbose_logging()

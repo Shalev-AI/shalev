@@ -86,24 +86,26 @@ shalev agent <action> <project~component>...          # Run LLM agent actions (c
 All available commands:
 
 ```
-shalev setup -p <handle> [-p <handle2> ...] [<dir>]  # Set up a new workspace
-shalev compose [<project>] [--show-log]               # Compose components into a document
-shalev view [<project>]                               # Open the composed PDF
-shalev tree [<project>]                               # Display the component include tree
-shalev agent <action> <project~component>...          # Run LLM agent actions (component without ~ uses default project)
-shalev agent --list                                   # List all available actions
-shalev agent <action> <project~folder> --all <ext>    # Run action on all files with given extension in folder
-shalev split <component> --split-type <cmd>           # Split a component at LaTeX commands into sub-components
+shalev setup -p <handle> [-p <handle2> ...] [<dir>]   # Set up a new workspace
+shalev compose [<project>] [--show-log]                # Compose components into a document
+shalev view [<project>]                                # Open the composed PDF
+shalev tree [<project>]                                # Display the component include tree
+shalev agent <action> <project~component>...           # Run LLM agent actions
+shalev agent --list                                    # List all available actions
+shalev agent <action> <project~folder> --all <ext>     # Run action on all files with extension in folder
+shalev split <component> --split-type <cmd>            # Split a component at LaTeX commands
 shalev split <component> --split-type <cmd> --target <dir> --numbered [<prefix>]
-shalev flush [<project>]                                # Delete all files in the build folder
-shalev default-project [<handle>]                     # View or set the default project
-shalev config [-w <workspace>]                        # View or set workspace configuration
-shalev status                                         # Display workspace status
-shalev alias <short_name> <project~component>         # Create a component alias
-shalev alias --list                                   # List all aliases
+shalev flush [<project>]                               # Delete all files in the build folder
+shalev default-project [<handle>]                      # View or set the default project
+shalev config [-w <workspace>]                         # View or set workspace configuration
+shalev status                                          # Display workspace status
+shalev alias <short_name> <project~component>          # Create a component alias
+shalev alias --list                                    # List all aliases
 ```
 
-Most commands accept `--show-shalev-log` to display internal log messages. The `compose` command also accepts `--show-log` to display the full LaTeX compilation output.
+Commands that accept a `[<project>]` argument will auto-select when there is a single project in the workspace, or use the default project set via `shalev default-project`. Component references use `project~component` format; the project prefix can be omitted when a default project is set.
+
+The commands `compose`, `agent`, `status`, `split`, `flush`, `view`, `tree`, and `default-project` accept `--show-shalev-log` to display internal log messages. The `compose` command also accepts `--show-log` to display the full LaTeX compilation output.
 
 ## Developer install
 
