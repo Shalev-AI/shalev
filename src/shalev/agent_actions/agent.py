@@ -8,6 +8,7 @@ from pprint import pprint
 from yaspin import yaspin
 from typing import List
 from shalev.shalev_eachrun_setup import ShalevWorkspace  # <-- adjust path if needed
+from shalev.shalev_config import get_openai_api_key
 
 SIZE_LIMIT = 30000
 
@@ -17,9 +18,16 @@ _client = None
 def get_client():
     global _client
     if _client is None:
+        api_key = get_openai_api_key()
         try:
-            _client = OpenAI()
-        except:
+            if api_key:
+                _client = OpenAI(api_key=api_key)
+            else:
+                if not os.environ.get("OPENAI_API_KEY"):
+                    print("No OpenAI API key found. Set one with: shalev config --openai-api-key <key>", file=sys.stderr)
+                    sys.exit(1)
+                _client = OpenAI()
+        except Exception:
             print(f"Problem with OpenAI client - check API key.", file=sys.stderr)
             sys.exit(1)
     return _client
@@ -61,9 +69,10 @@ def agent_action_single_component(workspace_data: ShalevWorkspace, action_handle
         print(f"Failed to read component file: {e}", file=sys.stderr)
         sys.exit(1)    
     messages = make_LLM_messages_single_component(action_prompt, component_text)
+    client = get_client()
     try:
         with yaspin(text="Waiting for LLM response...") as spinner:
-            response = get_client().chat.completions.create(model="gpt-4o",messages=messages)
+            response = client.chat.completions.create(model="gpt-4o",messages=messages)
     except Exception as e:
         print(f"OpenAI API error: {e}")
         sys.exit(1)
@@ -104,9 +113,10 @@ def agent_action_source_and_dest_components(workspace_data: ShalevWorkspace,
         print(f"Failed to read component file: {e}", file=sys.stderr)
         sys.exit(1)        
     messages = make_LLM_messages_source_and_dest_components(action_prompt, source_component_text, dest_component_text)
+    client = get_client()
     try:
         with yaspin(text="Waiting for LLM response...") as spinner:
-            response = get_client().chat.completions.create(model="gpt-4o",messages=messages)
+            response = client.chat.completions.create(model="gpt-4o",messages=messages)
     except Exception as e:
         print(f"OpenAI API error: {e}")
         sys.exit(1)

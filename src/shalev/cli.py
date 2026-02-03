@@ -257,13 +257,15 @@ def agent(action, projcomps, all_ext, list_actions, show_shalev_log):
 #################
 @click.command()
 @click.option('-w', '--workspace', help="Set workspace folder path")
-def config(workspace):
+@click.option('--openai-api-key', help="Store OpenAI API key in ~/.shalev.secrets.yaml")
+def config(workspace, openai_api_key):
     """View or set workspace configuration.
 
     Without options, displays the current workspace path. Use -w to set
-    the workspace folder path.
+    the workspace folder path. Use --openai-api-key to store your OpenAI
+    API key securely.
     """
-    config_func(workspace)
+    config_func(workspace, openai_api_key=openai_api_key)
 
 #################
 # shalev status #

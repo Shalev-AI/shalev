@@ -97,7 +97,7 @@ shalev split <component> --split-type <cmd>            # Split a component at La
 shalev split <component> --split-type <cmd> --target <dir> --numbered [<prefix>]
 shalev flush [<project>]                               # Delete all files in the build folder
 shalev default-project [<handle>]                      # View or set the default project
-shalev config [-w <workspace>]                         # View or set workspace configuration
+shalev config [-w <workspace>] [--openai-api-key <key>] # View or set workspace configuration
 shalev status                                          # Display workspace status
 shalev alias <short_name> <project~component>          # Create a component alias
 shalev alias --list                                    # List all aliases
@@ -116,13 +116,13 @@ Only tested on macOS at this stage.
 - Python 3.10+
 - [uv](https://docs.astral.sh/uv/getting-started/installation/)
 - pdflatex (install via [MacTeX](https://www.tug.org/mactex/) or `brew install --cask mactex`)
-- An [OpenAI API key](https://platform.openai.com/api-keys) — Shalev currently uses OpenAI for its LLM operations. Set it in your shell before running Shalev:
+- An [OpenAI API key](https://platform.openai.com/api-keys) — Shalev currently uses OpenAI for its LLM operations. After installing, store your key with:
 
   ```
-  export OPENAI_API_KEY=<your-key>
+  shalev config --openai-api-key <your-key>
   ```
 
-  Store the key securely (e.g. in your shell profile or a secrets manager) and avoid committing it to version control.
+  This saves the key to `~/.shalev.secrets.yaml`. Alternatively, the `OPENAI_API_KEY` environment variable is supported as a fallback.
 
 ### Install
 

@@ -3,6 +3,31 @@ import sys
 import yaml
 
 CONFIG_FILE = ".shalev.yaml"
+SECRETS_FILE = os.path.expanduser("~/.shalev.secrets.yaml")
+
+
+def get_openai_api_key():
+    """Read openai_api_key from the secrets file, returns None if missing."""
+    if not os.path.exists(SECRETS_FILE):
+        return None
+    with open(SECRETS_FILE, 'r') as f:
+        data = yaml.safe_load(f) or {}
+    return data.get('openai_api_key', None)
+
+
+def save_openai_api_key(key):
+    """Write or update the OpenAI API key in the secrets file."""
+    if os.path.exists(SECRETS_FILE):
+        with open(SECRETS_FILE, 'r') as f:
+            data = yaml.safe_load(f) or {}
+    else:
+        data = {}
+
+    data['openai_api_key'] = key
+
+    with open(SECRETS_FILE, 'w') as f:
+        f.write("# Shalev secrets — do NOT commit or share this file.\n")
+        yaml.dump(data, f, default_flow_style=False)
 
 
 def get_aliases():
@@ -56,9 +81,13 @@ def save_default_project(project_handle):
         yaml.dump(config_data, f, default_flow_style=False)
 
 
-def config(workspace_folder=None):
+def config(workspace_folder=None, openai_api_key=None):
     """Initialize or display Shalev configuration."""
-    if workspace_folder is None:
+    if openai_api_key is not None:
+        save_openai_api_key(openai_api_key)
+        print(f"OpenAI API key saved to {SECRETS_FILE}")
+
+    if workspace_folder is None and openai_api_key is None:
         # Display current config
         if os.path.exists(CONFIG_FILE):
             with open(CONFIG_FILE, 'r') as f:
@@ -69,7 +98,12 @@ def config(workspace_folder=None):
             print(f"No {CONFIG_FILE} found.")
             print(f"Usage: shalev config -w <workspace_folder>")
             sys.exit(1)
-    else:
+        if get_openai_api_key() is None:
+            print("No OpenAI API key configured.")
+            print("Set one with: shalev config --openai-api-key <key>")
+        else:
+            print("OpenAI API key: configured")
+    elif workspace_folder is not None:
         # Set workspace folder
         workspace_folder = os.path.abspath(workspace_folder)
 
