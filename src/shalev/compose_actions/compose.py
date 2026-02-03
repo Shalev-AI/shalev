@@ -4,33 +4,33 @@ from pprint import pprint
 from ..shalev_eachrun_setup import *
 
 
-def compose_action(shalev_project: ShalevProject):
+def compose_action(shalev_project: ShalevProject, show_log=False):
     try:
         complete_text = create_complete_text(shalev_project.root_component, shalev_project.components_folder)
-        # print(complete_text)
-        composed_project_path = os.path.join(shalev_project.build_folder,'composed_project.tex')
+        if complete_text is None:
+            return False
+        composed_project_path = os.path.join(shalev_project.build_folder, 'composed_project.tex')
         with open(composed_project_path, 'w') as file:
             file.write(complete_text)
-            print(f"Generated composed project file: {composed_project_path}")
         try:
             previous_dir = os.getcwd()
             os.chdir(shalev_project.build_folder)
-            print(os.getcwd())
-            result = subprocess.run(['pdflatex', 
-                                    '-interaction=nonstopmode', 
+            result = subprocess.run(['pdflatex',
+                                    '-interaction=nonstopmode',
                                     '-output-directory=.',
-                                    'composed_project.tex'], 
-                                    capture_output=True, 
+                                    'composed_project.tex'],
+                                    capture_output=True,
                                     text=True)
 
             if result.returncode == 0:
-                print("LaTeX compilation successful!")
-                print(f"Output document should be in {shalev_project.build_folder}/composed_project.pdf")
+                print("Compose successful.")
+                if show_log:
+                    print(result.stdout)
                 return True
             else:
-                print("LaTeX compilation failed!")
-                print("Error output:")
-                print(result.stdout)
+                print("Compose failed. Run with --show-log to see full output.")
+                if show_log:
+                    print(result.stdout)
                 return False
         finally:
             os.chdir(previous_dir)

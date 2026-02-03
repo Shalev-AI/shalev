@@ -97,11 +97,12 @@ def resolve_project(workspace_data, project):
 ##################
 @click.command()
 @click.argument('project', required=False, default=None)
-def compose(project):
+@click.option('--show-log', is_flag=True, help="Show full LaTeX compilation log")
+def compose(project, show_log):
     workspace_data = setup_workspace()
     project = resolve_project(workspace_data, project)
     logging.info(f"Running compose on project: {project}")
-    if compose_action(workspace_data.projects[project]):
+    if compose_action(workspace_data.projects[project], show_log=show_log):
         print(f"To view the output, run: shalev view {project}")
 
 ################
