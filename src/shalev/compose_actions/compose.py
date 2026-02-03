@@ -22,16 +22,20 @@ def compose_action(shalev_project: ShalevProject, show_log=False):
                                     capture_output=True,
                                     text=True)
 
-            if result.returncode == 0:
+            pdf_path = os.path.join('.', 'composed_project.pdf')
+            pdf_produced = os.path.exists(pdf_path)
+
+            if pdf_produced and result.returncode == 0:
                 print("Compose successful.")
-                if show_log:
-                    print(result.stdout)
-                return True
+            elif pdf_produced:
+                print("Compose successful (with warnings). Run with --show-log to see details.")
             else:
                 print("Compose failed. Run with --show-log to see full output.")
-                if show_log:
-                    print(result.stdout)
-                return False
+
+            if show_log:
+                print(result.stdout)
+
+            return pdf_produced
         finally:
             os.chdir(previous_dir)
     except Exception as e:
