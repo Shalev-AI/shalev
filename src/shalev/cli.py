@@ -488,9 +488,14 @@ def setup(projects, directory):
 
     if missing_entries:
         click.echo("")
-        click.echo("Warning: consider adding the following build folders to .gitignore:")
+        click.echo("Warning: The following build folders are not in .gitignore:")
         for bf in missing_entries:
             click.echo(f"  {bf}")
+        if click.confirm("Add them to .gitignore?"):
+            with open(gitignore_path, 'a') as f:
+                for bf in missing_entries:
+                    f.write(bf + "\n")
+            click.echo("Updated .gitignore.")
 
     click.echo("")
     click.echo(f"Workspace '{workspace_name}' set up with {len(projects)} project(s): {', '.join(projects)}")

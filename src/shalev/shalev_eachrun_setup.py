@@ -1,4 +1,5 @@
 import os
+import subprocess
 import sys
 import yaml
 from dataclasses import dataclass
@@ -63,6 +64,41 @@ def check_workspace_data_valid(workspace_data: ShalevWorkspace) -> List[str]:
         ])
     return [path for path in folders_to_check if not os.path.isdir(path)]
 
+def check_workspace_health(workspace_data: ShalevWorkspace, workspace_folder: str):
+    """Run health checks: git repo presence and .gitignore coverage of build folders."""
+    # 1. Check if workspace is inside a git repo
+    result = subprocess.run(
+        ['git', '-C', workspace_folder, 'rev-parse', '--git-dir'],
+        capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        print("Warning: Workspace folder is not inside a git repository. Consider running 'git init'.")
+
+    # 2. Check .gitignore for build folders
+    gitignore_path = os.path.join(workspace_folder, '.gitignore')
+    gitignore_content = ""
+    if os.path.exists(gitignore_path):
+        with open(gitignore_path, 'r') as f:
+            gitignore_content = f.read()
+
+    missing_entries = []
+    for proj in workspace_data.projects.values():
+        rel_build = os.path.relpath(proj.build_folder, workspace_folder)
+        if rel_build not in gitignore_content:
+            missing_entries.append(rel_build)
+
+    if missing_entries:
+        print("Warning: The following build folders are not in .gitignore:")
+        for entry in missing_entries:
+            print(f"  {entry}")
+        answer = input("Add them to .gitignore? [y/n]: ").strip().lower()
+        if answer == "y":
+            with open(gitignore_path, 'a') as f:
+                for entry in missing_entries:
+                    f.write(entry + "\n")
+            print("Updated .gitignore.")
+
+
 def setup_workspace(fn = ".shalev.yaml"):
     try:
         with open(fn) as dot_shalev_file:
@@ -97,6 +133,7 @@ def setup_workspace(fn = ".shalev.yaml"):
                         print(f"  Created: {folder}")
                 else:
                     sys.exit(1)
+            check_workspace_health(workspace_data, workspace_folder)
             return workspace_data
     except FileNotFoundError:
         print(f"Error: {fn} file does not exist, try:\n\t shalev config -w <workspace folder location>", file=sys.stderr)
