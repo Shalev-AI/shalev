@@ -109,6 +109,7 @@ def resolve_project(workspace_data, project):
 @click.option('--show-log', is_flag=True, help="Show full LaTeX compilation log")
 @click.option('--show-shalev-log', is_flag=True, help="Show shalev internal log messages")
 def compose(project, show_log, show_shalev_log):
+    """Compose components into a document and compile with LaTeX."""
     if show_shalev_log:
         enable_verbose_logging()
     workspace_data = setup_workspace()
@@ -127,6 +128,7 @@ def compose(project, show_log, show_shalev_log):
 @click.option('--list', '-l', 'list_actions', is_flag=True, help="List all available actions")
 @click.option('--show-shalev-log', is_flag=True, help="Show shalev internal log messages")
 def agent(action, projcomps, all_ext, list_actions, show_shalev_log):
+    """Run an LLM agent action on one or two components."""
     if show_shalev_log:
         enable_verbose_logging()
     workspace_data = setup_workspace()
@@ -232,6 +234,7 @@ def agent(action, projcomps, all_ext, list_actions, show_shalev_log):
 @click.command()
 @click.option('-w', '--workspace', help="Set workspace folder path")
 def config(workspace):
+    """View or set workspace configuration."""
     config_func(workspace)
 
 #################
@@ -339,6 +342,7 @@ def default_project(project):
 @click.command()
 @click.argument('project', required=False, default=None)
 def view(project):
+    """Open the composed PDF for a project."""
     workspace_data = setup_workspace()
     project = resolve_project(workspace_data, project)
     pdf_path = os.path.join(workspace_data.projects[project].build_folder, 'composed_project.pdf')
@@ -498,7 +502,7 @@ def setup(projects, directory):
 @click.command()
 @click.argument('component')
 @click.option('--split-type', required=True, help="LaTeX command to split on, e.g. \\\\section")
-@click.option('--target', default=None, help="Subdirectory for sub-component files (relative to component's directory)")
+@click.option('--target', default=None, help="Subdirectory for sub-component files (relative to components folder)")
 @click.option('--numbered', is_flag=False, flag_value='', default=None, help="Prefix filenames with a number. Optionally pass a parent prefix, e.g. --numbered c2")
 @click.option('--show-shalev-log', is_flag=True, help="Show shalev internal log messages")
 def split(component, split_type, target, numbered, show_shalev_log):
