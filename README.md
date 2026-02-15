@@ -100,7 +100,27 @@ user_prompt:
     __multi_input_component_texts
 ```
 
-There are many more useful actions, some of which come with Shalev and others can be customized in the project.
+### Organizing action prompts
+
+Action prompts can be organized into three categories by placing them in subdirectories of `action_prompts/`:
+
+```
+action_prompts/
+  global/              # Universal actions (grammar, whitespace, style transfer)
+    fix_grammar.yaml
+    remove_whitespace.yaml
+    stm.yaml
+  project/             # Project-specific actions (e.g., Julia to Python conversion)
+    julia_to_python.yaml
+    latex_to_beamer.yaml
+  component/           # Component-specific actions (e.g., write specific content)
+    expand_intro.yaml
+    write_theorem.yaml
+```
+
+This organization is for human clarity only—Shalev searches all subdirectories automatically and any action can be run on any component. The `shalev agent --list` command groups actions by category.
+
+Actions placed directly in the `action_prompts/` root folder (not in a subdirectory) are categorized as "uncategorized" and continue to work normally for backwards compatibility.
 
 ## The Shalev Config
 
