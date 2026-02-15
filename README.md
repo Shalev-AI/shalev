@@ -122,6 +122,14 @@ This organization is for human clarity only—Shalev searches all subdirectories
 
 Actions placed directly in the `action_prompts/` root folder (not in a subdirectory) are categorized as "uncategorized" and continue to work normally for backwards compatibility.
 
+To set up the category structure and install default actions in an existing workspace:
+
+```
+shalev config --init-actions
+```
+
+This creates the `global/`, `project/`, and `component/` subdirectories and installs default actions for grammar fixing (`gr`), whitespace cleanup (`ws`), and style transfer (`st`, `stm`). Existing actions are not overwritten.
+
 ## The Shalev Config
 
 A Shalev project has the `config` folder which has files that specify certain settings such the LLM to use a (.gitignored) file that has API keys, and other content.
@@ -156,6 +164,7 @@ shalev split <component> --split-type <cmd> --target <dir> --numbered [<prefix>]
 shalev flush [<project>]                               # Delete all files in the build folder
 shalev default-project [<handle>]                      # View or set the default project
 shalev config [-w <workspace>] [--openai-api-key <key>] # View or set workspace configuration
+shalev config --init-actions                           # Set up action categories and default actions
 shalev status                                          # Display workspace status
 shalev alias <short_name> <project~component>          # Create a component alias
 shalev alias --list                                    # List all aliases

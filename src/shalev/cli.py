@@ -48,7 +48,7 @@ from shalev.agent_actions import *
 from shalev.compose_actions import *
 from shalev.split_actions import split_component
 from shalev.shalev_eachrun_setup import *
-from shalev.shalev_config import get_aliases, save_alias, get_default_project, save_default_project, config as config_func
+from shalev.shalev_config import get_aliases, save_alias, get_default_project, save_default_project, config as config_func, init_actions
 
 # workspace_data is lazily loaded by commands that need it
 # action_prompt_templates = setup_action_prompt_templates(workspace_data["action_prompts_path"])
@@ -335,13 +335,19 @@ def agent(action, projcomps, all_ext, inputs, targets, list_actions, show_shalev
 @click.command()
 @click.option('-w', '--workspace', help="Set workspace folder path")
 @click.option('--openai-api-key', help="Store OpenAI API key in ~/.shalev.secrets.yaml")
-def config(workspace, openai_api_key):
+@click.option('--init-actions', 'init_actions_flag', is_flag=True,
+              help="Initialize action_prompts folder structure with default actions")
+def config(workspace, openai_api_key, init_actions_flag):
     """View or set workspace configuration.
 
     Without options, displays the current workspace path. Use -w to set
     the workspace folder path. Use --openai-api-key to store your OpenAI
-    API key securely.
+    API key securely. Use --init-actions to set up action prompt categories
+    and install default actions.
     """
+    if init_actions_flag:
+        init_actions()
+        return
     config_func(workspace, openai_api_key=openai_api_key)
 
 #################

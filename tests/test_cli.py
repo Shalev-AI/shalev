@@ -129,3 +129,34 @@ class TestTreeCommand:
             assert 'root.tex' in result.output
             assert 'ch1.tex' in result.output
             assert 'ch2.tex' in result.output
+
+
+class TestConfigCommand:
+    """Tests for the config command."""
+
+    def test_config_init_actions(self, test_workspace_path, tmp_path):
+        """Test that --init-actions creates folders and default actions."""
+        import shutil
+
+        # Create a temporary copy of the test workspace
+        temp_workspace = tmp_path / "test_workspace"
+        shutil.copytree(test_workspace_path, temp_workspace)
+
+        # Remove existing default actions to test creation
+        global_dir = temp_workspace / "action_prompts" / "global"
+        for f in ['fix_grammar.yaml', 'remove_whitespace.yaml', 'style_transfer.yaml', 'style_transfer_multi.yaml']:
+            (global_dir / f).unlink(missing_ok=True)
+
+        runner = CliRunner()
+        shalev_config = f"workspace_folder: {temp_workspace}\n"
+        with runner.isolated_filesystem():
+            with open('.shalev.yaml', 'w') as f:
+                f.write(shalev_config)
+            result = runner.invoke(cli, ['config', '--init-actions'])
+            assert result.exit_code == 0
+            assert 'fix_grammar.yaml' in result.output
+            assert 'style_transfer.yaml' in result.output
+
+        # Verify files were created
+        assert (global_dir / 'fix_grammar.yaml').exists()
+        assert (global_dir / 'style_transfer.yaml').exists()
