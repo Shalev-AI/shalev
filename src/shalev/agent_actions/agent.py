@@ -82,19 +82,39 @@ def find_similar_components(components_folder: str, component_handle: str, max_s
     return suggestions[:max_suggestions]
 
 
-def read_component_file(components_folder: str, component_handle: str) -> str:
-    """Read a component file, with helpful error message if not found."""
+def read_component_file(components_folder: str, component_handle: str) -> tuple:
+    """Read a component file, with interactive suggestions if not found.
+
+    Returns:
+        (resolved_component_handle, text) - the handle may differ if user accepted a suggestion
+    """
     component_path = os.path.join(components_folder, component_handle)
 
     if not os.path.isfile(component_path):
         suggestions = find_similar_components(components_folder, component_handle)
-        error_msg = f"Component not found: {component_handle}"
+        print(f"Component not found: {component_handle}", file=sys.stderr)
+
         if suggestions:
-            error_msg += "\n\nDid you mean:"
-            for s in suggestions:
-                error_msg += f"\n  {s}"
-        print(error_msg, file=sys.stderr)
-        sys.exit(1)
+            # Offer the first suggestion
+            suggested = suggestions[0]
+            print(f"\nDid you mean: {suggested}?", file=sys.stderr)
+            if len(suggestions) > 1:
+                print(f"  (other options: {', '.join(suggestions[1:])})", file=sys.stderr)
+
+            try:
+                answer = input("Use this instead? [Y/n]: ").strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                print("\nAborted.", file=sys.stderr)
+                sys.exit(1)
+
+            if answer in ('', 'y', 'yes'):
+                component_handle = suggested
+                component_path = os.path.join(components_folder, component_handle)
+                print(f"Using: {component_handle}")
+            else:
+                sys.exit(1)
+        else:
+            sys.exit(1)
 
     file_size = os.path.getsize(component_path)
     if file_size > SIZE_LIMIT:
@@ -102,7 +122,7 @@ def read_component_file(components_folder: str, component_handle: str) -> str:
         sys.exit(1)
 
     with open(component_path, "r", encoding="utf-8") as f:
-        return f.read()
+        return (component_handle, f.read())
 
 # Lazy load the OpenAI client
 _client = None
@@ -188,8 +208,8 @@ def agent_action_single_component(workspace_data: ShalevWorkspace, action_handle
         print(f"No agent action {action_handle}.", file=sys.stderr)
         sys.exit(1)
     components_folder = workspace_data.projects[project_handle].components_folder
+    component_handle, component_text = read_component_file(components_folder, component_handle)
     component_path = os.path.join(components_folder, component_handle)
-    component_text = read_component_file(components_folder, component_handle)
     messages = make_LLM_messages_single_component(action_prompt, component_text)
     client = get_client()
     try:
@@ -215,10 +235,10 @@ def agent_action_source_and_dest_components(workspace_data: ShalevWorkspace,
         sys.exit(1)
     source_components_folder = workspace_data.projects[source_project_handle].components_folder
     dest_components_folder = workspace_data.projects[dest_project_handle].components_folder
-    dest_component_path = os.path.join(dest_components_folder, dest_component_handle)
 
-    source_component_text = read_component_file(source_components_folder, source_component_handle)
-    dest_component_text = read_component_file(dest_components_folder, dest_component_handle)
+    source_component_handle, source_component_text = read_component_file(source_components_folder, source_component_handle)
+    dest_component_handle, dest_component_text = read_component_file(dest_components_folder, dest_component_handle)
+    dest_component_path = os.path.join(dest_components_folder, dest_component_handle)
 
     messages = make_LLM_messages_source_and_dest_components(action_prompt, source_component_text, dest_component_text)
     client = get_client()
@@ -325,14 +345,14 @@ def agent_action_multi_input_components(
     total_size = 0
     for project, component in input_projects_components:
         components_folder = workspace_data.projects[project].components_folder
-        text = read_component_file(components_folder, component)
+        _, text = read_component_file(components_folder, component)
         input_texts.append(text)
         total_size += len(text.encode('utf-8'))
 
     # Read target component
     target_components_folder = workspace_data.projects[target_project].components_folder
+    target_component, target_text = read_component_file(target_components_folder, target_component)
     target_component_path = os.path.join(target_components_folder, target_component)
-    target_text = read_component_file(target_components_folder, target_component)
     total_size += len(target_text.encode('utf-8'))
 
     # Check total message size (inputs + target)
