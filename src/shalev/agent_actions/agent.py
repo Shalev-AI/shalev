@@ -12,6 +12,98 @@ from shalev.shalev_config import get_openai_api_key
 
 SIZE_LIMIT = 30000
 
+
+def find_similar_components(components_folder: str, component_handle: str, max_suggestions: int = 5) -> List[str]:
+    """Find components similar to the given handle when exact match not found.
+
+    Searches for:
+    - Same name with .tex extension added
+    - Files in subdirectories matching the name
+    - Files with similar names (fuzzy match on basename)
+    """
+    import glob
+    import difflib
+
+    suggestions = []
+    basename = os.path.basename(component_handle)
+    dirname = os.path.dirname(component_handle)
+
+    # 1. Try adding common extensions
+    for ext in ['.tex', '.txt', '.md']:
+        candidate = component_handle + ext
+        candidate_path = os.path.join(components_folder, candidate)
+        if os.path.isfile(candidate_path):
+            suggestions.append(candidate)
+
+    # 2. Get all files in the components folder recursively
+    all_files = []
+    for root, dirs, files in os.walk(components_folder):
+        for f in files:
+            full_path = os.path.join(root, f)
+            rel_path = os.path.relpath(full_path, components_folder)
+            all_files.append(rel_path)
+
+    # 3. Look for exact basename matches in subdirectories
+    for f in all_files:
+        f_basename = os.path.basename(f)
+        f_name_no_ext = os.path.splitext(f_basename)[0]
+        # Match if basename (with or without extension) matches
+        if f_basename == basename or f_name_no_ext == basename:
+            if f not in suggestions:
+                suggestions.append(f)
+
+    # 4. Fuzzy match on basename
+    all_basenames = [(os.path.basename(f), f) for f in all_files]
+    close_matches = difflib.get_close_matches(
+        basename,
+        [b for b, _ in all_basenames],
+        n=max_suggestions,
+        cutoff=0.6
+    )
+    for match in close_matches:
+        for b, full in all_basenames:
+            if b == match and full not in suggestions:
+                suggestions.append(full)
+
+    # Also try matching without extension
+    basename_no_ext = os.path.splitext(basename)[0]
+    if basename_no_ext != basename:
+        close_matches = difflib.get_close_matches(
+            basename_no_ext,
+            [os.path.splitext(b)[0] for b, _ in all_basenames],
+            n=max_suggestions,
+            cutoff=0.6
+        )
+        for match in close_matches:
+            for b, full in all_basenames:
+                if os.path.splitext(b)[0] == match and full not in suggestions:
+                    suggestions.append(full)
+
+    return suggestions[:max_suggestions]
+
+
+def read_component_file(components_folder: str, component_handle: str) -> str:
+    """Read a component file, with helpful error message if not found."""
+    component_path = os.path.join(components_folder, component_handle)
+
+    if not os.path.isfile(component_path):
+        suggestions = find_similar_components(components_folder, component_handle)
+        error_msg = f"Component not found: {component_handle}"
+        if suggestions:
+            error_msg += "\n\nDid you mean:"
+            for s in suggestions:
+                error_msg += f"\n  {s}"
+        print(error_msg, file=sys.stderr)
+        sys.exit(1)
+
+    file_size = os.path.getsize(component_path)
+    if file_size > SIZE_LIMIT:
+        print(f"File {component_path} is too large ({file_size} bytes; limit is {SIZE_LIMIT} bytes).", file=sys.stderr)
+        sys.exit(1)
+
+    with open(component_path, "r", encoding="utf-8") as f:
+        return f.read()
+
 # Lazy load the OpenAI client
 _client = None
 
@@ -95,16 +187,9 @@ def agent_action_single_component(workspace_data: ShalevWorkspace, action_handle
     except KeyError:
         print(f"No agent action {action_handle}.", file=sys.stderr)
         sys.exit(1)
-    component_path = os.path.join(workspace_data.projects[project_handle].components_folder, component_handle)
-    try:
-        file_size = os.path.getsize(component_path)
-        if file_size > SIZE_LIMIT:
-            raise ValueError(f"File {component_path} is too large ({file_size} bytes; limit is {SIZE_LIMIT} bytes).")
-        with open(component_path, "r", encoding="utf-8") as f:
-            component_text = f.read()
-    except Exception as e:
-        print(f"Failed to read component file: {e}", file=sys.stderr)
-        sys.exit(1)    
+    components_folder = workspace_data.projects[project_handle].components_folder
+    component_path = os.path.join(components_folder, component_handle)
+    component_text = read_component_file(components_folder, component_handle)
     messages = make_LLM_messages_single_component(action_prompt, component_text)
     client = get_client()
     try:
@@ -118,37 +203,23 @@ def agent_action_single_component(workspace_data: ShalevWorkspace, action_handle
     # compare_strings_succinct(component_text, revised_component_text)
     # logger.info("start_job", job_id=689, status="running") #QQQQ still doesn't work
 
-def agent_action_source_and_dest_components(workspace_data: ShalevWorkspace, 
-                                            action_handle, 
+def agent_action_source_and_dest_components(workspace_data: ShalevWorkspace,
+                                            action_handle,
                                             source_project_handle, source_component_handle,
                                             dest_project_handle, dest_component_handle):
-    # print(f"{source_project_handle=}, {source_component_handle=}, {dest_project_handle=}, {dest_component_handle=}")
-    agent_configs = load_agent_configs_from_folder(workspace_data.action_prompts_folder) #QQQQ do someplace else
+    agent_configs = load_agent_configs_from_folder(workspace_data.action_prompts_folder)
     try:
         action_prompt = agent_configs[action_handle]
     except KeyError:
         print(f"No agent action {action_handle}.", file=sys.stderr)
         sys.exit(1)
-    source_component_path = os.path.join(workspace_data.projects[source_project_handle].components_folder, source_component_handle)
-    dest_component_path = os.path.join(workspace_data.projects[dest_project_handle].components_folder, dest_component_handle)
-    try:
-        source_file_size = os.path.getsize(source_component_path)
-        if source_file_size > SIZE_LIMIT:
-            raise ValueError(f"File {source_component_path} is too large ({file_size} bytes; limit is {SIZE_LIMIT} bytes).")
-        with open(source_component_path, "r", encoding="utf-8") as f:
-            source_component_text = f.read()
-    except Exception as e:
-        print(f"Failed to read component file: {e}", file=sys.stderr)
-        sys.exit(1)
-    try:
-        dest_file_size = os.path.getsize(dest_component_path)
-        if dest_file_size > SIZE_LIMIT:
-            raise ValueError(f"File {dest_component_path} is too large ({file_size} bytes; limit is {SIZE_LIMIT} bytes).")
-        with open(dest_component_path, "r", encoding="utf-8") as f:
-            dest_component_text = f.read()
-    except Exception as e:
-        print(f"Failed to read component file: {e}", file=sys.stderr)
-        sys.exit(1)        
+    source_components_folder = workspace_data.projects[source_project_handle].components_folder
+    dest_components_folder = workspace_data.projects[dest_project_handle].components_folder
+    dest_component_path = os.path.join(dest_components_folder, dest_component_handle)
+
+    source_component_text = read_component_file(source_components_folder, source_component_handle)
+    dest_component_text = read_component_file(dest_components_folder, dest_component_handle)
+
     messages = make_LLM_messages_source_and_dest_components(action_prompt, source_component_text, dest_component_text)
     client = get_client()
     try:
@@ -253,30 +324,16 @@ def agent_action_multi_input_components(
     input_texts = []
     total_size = 0
     for project, component in input_projects_components:
-        component_path = os.path.join(workspace_data.projects[project].components_folder, component)
-        try:
-            file_size = os.path.getsize(component_path)
-            if file_size > SIZE_LIMIT:
-                raise ValueError(f"File {component_path} is too large ({file_size} bytes; limit is {SIZE_LIMIT} bytes).")
-            total_size += file_size
-            with open(component_path, "r", encoding="utf-8") as f:
-                input_texts.append(f.read())
-        except Exception as e:
-            print(f"Failed to read input component file: {e}", file=sys.stderr)
-            sys.exit(1)
+        components_folder = workspace_data.projects[project].components_folder
+        text = read_component_file(components_folder, component)
+        input_texts.append(text)
+        total_size += len(text.encode('utf-8'))
 
     # Read target component
-    target_component_path = os.path.join(workspace_data.projects[target_project].components_folder, target_component)
-    try:
-        target_file_size = os.path.getsize(target_component_path)
-        if target_file_size > SIZE_LIMIT:
-            raise ValueError(f"File {target_component_path} is too large ({target_file_size} bytes; limit is {SIZE_LIMIT} bytes).")
-        total_size += target_file_size
-        with open(target_component_path, "r", encoding="utf-8") as f:
-            target_text = f.read()
-    except Exception as e:
-        print(f"Failed to read target component file: {e}", file=sys.stderr)
-        sys.exit(1)
+    target_components_folder = workspace_data.projects[target_project].components_folder
+    target_component_path = os.path.join(target_components_folder, target_component)
+    target_text = read_component_file(target_components_folder, target_component)
+    total_size += len(target_text.encode('utf-8'))
 
     # Check total message size (inputs + target)
     total_limit = SIZE_LIMIT * 3  # Allow larger total for multi-input

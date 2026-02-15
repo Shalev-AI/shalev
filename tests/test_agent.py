@@ -129,3 +129,28 @@ class TestSizeLimit:
                 filepath = os.path.join(components_folder, filename)
                 size = os.path.getsize(filepath)
                 assert size < SIZE_LIMIT, f"{filename} exceeds size limit"
+
+
+class TestFindSimilarComponents:
+    """Tests for component suggestion when file not found."""
+
+    def test_suggests_with_tex_extension(self, components_folder):
+        """Test that missing .tex extension is suggested."""
+        from shalev.agent_actions.agent import find_similar_components
+        # Looking for 'root' should suggest 'root.tex'
+        suggestions = find_similar_components(components_folder, 'root')
+        assert 'root.tex' in suggestions
+
+    def test_suggests_similar_names(self, components_folder):
+        """Test fuzzy matching on similar names."""
+        from shalev.agent_actions.agent import find_similar_components
+        # Looking for 'ch1' should suggest 'ch1.tex'
+        suggestions = find_similar_components(components_folder, 'ch1')
+        assert 'ch1.tex' in suggestions
+
+    def test_no_suggestions_for_completely_wrong(self, components_folder):
+        """Test that completely wrong names return empty or limited suggestions."""
+        from shalev.agent_actions.agent import find_similar_components
+        suggestions = find_similar_components(components_folder, 'xyznonexistent123')
+        # Should be empty or very few suggestions
+        assert len(suggestions) <= 2
