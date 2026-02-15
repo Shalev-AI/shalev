@@ -64,6 +64,42 @@ shalev agent transform_julia_to_python myproject~example_normal_dist_julia mypro
 
 applies a specific action called `transform_julia_to_python` which translates Julia code to Python code. It takes the component `example_normal_dist_julia` as the source and `example_normal_dist_python` as the destination component. Note the `project~component` format where the project name and component name are separated by a tilde (`~`). If a default project is set (via `shalev default-project`), you can omit the project prefix and just write the component name.
 
+### Multi-input style transfer
+
+For style transfer tasks where multiple examples demonstrate a target style, use the `--inputs` and `--targets` flags:
+
+```
+shalev agent stm --inputs style_example1 style_example2 --target draft_chapter
+```
+
+This sends all input components as read-only examples to the LLM, which then transforms the target component to match the style shown in the examples. The inputs are formatted as numbered sections (INPUT 1, INPUT 2, etc.) in the LLM prompt.
+
+To process multiple targets with the same inputs:
+
+```
+shalev agent stm --inputs ex1 ex2 --targets draft1 draft2 draft3
+```
+
+Each target is processed separately, with all inputs sent to the LLM for each target transformation.
+
+Example action YAML for multi-example style transfer (save as `stm.yaml` in your `action_prompts` folder):
+
+```yaml
+agent_command_name: stm
+main_source_label: __multi_input_component_texts
+system_prompt:
+  content: |
+    You will be provided with multiple example texts under INPUT 1, INPUT 2, etc.
+    These examples demonstrate a particular writing style.
+    You will also be provided a target text under TARGET.
+    Your task is to rewrite the TARGET to match the style shown in the INPUT examples.
+    Return only the rewritten text without explanations.
+    Preserve the meaning and structure of TARGET, only change the style.
+user_prompt:
+  content: |
+    __multi_input_component_texts
+```
+
 There are many more useful actions, some of which come with Shalev and others can be customized in the project.
 
 ## The Shalev Config
@@ -93,6 +129,8 @@ shalev tree [<project>]                                # Display the component i
 shalev agent <action> <project~component>...           # Run LLM agent actions
 shalev agent --list                                    # List all available actions
 shalev agent <action> <project~folder> --all <ext>     # Run action on all files with extension in folder
+shalev agent <action> --inputs <comp>... --target <comp>   # Multi-input style transfer
+shalev agent <action> --inputs <comp>... --targets <comp>... # Multi-input, multi-target
 shalev split <component> --split-type <cmd>            # Split a component at LaTeX commands
 shalev split <component> --split-type <cmd> --target <dir> --numbered [<prefix>]
 shalev flush [<project>]                               # Delete all files in the build folder

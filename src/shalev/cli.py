@@ -135,9 +135,11 @@ def compose(project, show_log, show_shalev_log):
 @click.argument('action', required=False, default=None)
 @click.argument('projcomps', nargs=-1)
 @click.option('--all', 'all_ext', default=None, help="Run action on all files with given extension (e.g., .jl) in the folder")
+@click.option('--inputs', '--input', 'inputs', multiple=True, help="Input/example components (read-only)")
+@click.option('--targets', '--target', 'targets', multiple=True, help="Target components to transform")
 @click.option('--list', '-l', 'list_actions', is_flag=True, help="List all available actions")
 @click.option('--show-shalev-log', is_flag=True, help="Show shalev internal log messages")
-def agent(action, projcomps, all_ext, list_actions, show_shalev_log):
+def agent(action, projcomps, all_ext, inputs, targets, list_actions, show_shalev_log):
     """Run an LLM agent action on one or two components.
 
     ACTION is the name of an agent action defined in the workspace's
@@ -148,7 +150,12 @@ def agent(action, projcomps, all_ext, list_actions, show_shalev_log):
     and just write the component name.
 
     \b
-    Examples:
+    Multi-input/target mode (use --inputs and --targets flags):
+      shalev agent stm --inputs ex1 ex2 --target draft
+      shalev agent stm --inputs ex1 ex2 --targets d1 d2 d3
+
+    \b
+    Standard mode (positional arguments):
       shalev agent general_proofread myproject~root
       shalev agent transform myproject~source myproject~dest
       shalev agent action myproject~folder --all .jl
@@ -176,29 +183,83 @@ def agent(action, projcomps, all_ext, list_actions, show_shalev_log):
     if action is None:
         raise click.UsageError("Missing argument 'ACTION'. Use --list to see available actions.")
 
-    # Resolve aliases
+    # Detect mode: flag mode (--inputs/--targets) vs positional mode
+    flag_mode = bool(inputs or targets)
+
+    if flag_mode and projcomps:
+        raise click.UsageError("Cannot mix positional arguments with --inputs/--targets flags.")
+
+    if flag_mode:
+        if not inputs:
+            raise click.UsageError("At least one --input/--inputs is required in flag mode.")
+        if not targets:
+            raise click.UsageError("At least one --target/--targets is required in flag mode.")
+
+    # Resolve aliases helper
     aliases = get_aliases()
-    resolved_projcomps = []
-    for pc in projcomps:
+
+    def resolve_component(pc):
+        """Resolve aliases and bare components to full project~component format."""
+        # Resolve alias
         if pc in aliases:
             resolved = aliases[pc]
             click.echo(f"Using alias '{pc}' -> '{resolved}'")
-            resolved_projcomps.append(resolved)
-        else:
-            resolved_projcomps.append(pc)
-    projcomps = tuple(resolved_projcomps)
+            pc = resolved
 
-    # Resolve bare components (no ~) using default project
-    fully_resolved = []
-    for pc in projcomps:
+        # Resolve bare component (no ~) using default project
         if '~' not in pc:
             default_proj = resolve_project(workspace_data, None)
-            fully_resolved.append(f"{default_proj}~{pc}")
+            return f"{default_proj}~{pc}"
         else:
             if pc.count('~') != 1:
                 raise click.UsageError(f"'{pc}' has too many '~'. Format should be project~component")
-            fully_resolved.append(pc)
-    projcomps = tuple(fully_resolved)
+            return pc
+
+    if flag_mode:
+        # Resolve inputs and targets
+        resolved_inputs = [resolve_component(inp) for inp in inputs]
+        resolved_targets = [resolve_component(tgt) for tgt in targets]
+
+        # Parse into (project, component) tuples
+        input_projcomps = []
+        for inp in resolved_inputs:
+            project, component = inp.split('~', 1)
+            if project not in workspace_data.projects:
+                raise click.UsageError(f"Project '{project}' not found")
+            input_projcomps.append((project, component))
+
+        target_projcomps = []
+        for tgt in resolved_targets:
+            project, component = tgt.split('~', 1)
+            if project not in workspace_data.projects:
+                raise click.UsageError(f"Project '{project}' not found")
+            target_projcomps.append((project, component))
+
+        logging.info(f"Agent action '{action}' with {len(input_projcomps)} input(s) on {len(target_projcomps)} target(s)")
+
+        # Process each target
+        for i, (target_project, target_component) in enumerate(target_projcomps, 1):
+            if len(target_projcomps) > 1:
+                click.echo(f"[{i}/{len(target_projcomps)}] Processing target: {target_project}~{target_component}")
+            agent_action_multi_input_components(
+                workspace_data,
+                action,
+                input_projcomps,
+                target_project,
+                target_component
+            )
+            if len(target_projcomps) > 1:
+                click.echo()
+
+        if len(target_projcomps) > 1:
+            click.echo(f"Completed processing {len(target_projcomps)} target(s).")
+        return
+
+    # Standard positional mode
+    resolved_projcomps = []
+    for pc in projcomps:
+        resolved_projcomps.append(resolve_component(pc))
+    projcomps = tuple(resolved_projcomps)
 
     logging.info(f"Agent action '{action}' on: {projcomps}")
 

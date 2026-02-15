@@ -162,6 +162,104 @@ def make_LLM_messages_source_and_dest_components(action_prompt, source_component
     return messages
 
 
+def make_LLM_messages_multi_input_components(action_prompt, input_texts: List[str], target_text: str):
+    """Build LLM messages with multiple numbered inputs and one target.
+
+    Format:
+    **INPUT 1**
+    {text1}
+
+    **INPUT 2**
+    {text2}
+
+    **TARGET**
+    {target}
+    """
+    user_content_parts = []
+    for i, text in enumerate(input_texts, 1):
+        user_content_parts.append(f"**INPUT {i}**\n{text}")
+    user_content_parts.append(f"**TARGET**\n{target_text}")
+
+    messages = [
+        {
+            "role": "system",
+            "content": action_prompt.system_prompt["content"],
+        },
+        {
+            "role": "user",
+            "content": "\n\n".join(user_content_parts)
+        }
+    ]
+    return messages
+
+
+def agent_action_multi_input_components(
+    workspace_data: ShalevWorkspace,
+    action_handle: str,
+    input_projects_components: List[tuple],  # [(project, component), ...]
+    target_project: str,
+    target_component: str
+):
+    """Run an agent action with multiple input components and one target component.
+
+    Input components are read-only examples. The target component is transformed
+    based on the style/content of the inputs and overwritten in place.
+    """
+    agent_configs = load_agent_configs_from_folder(workspace_data.action_prompts_folder)
+    try:
+        action_prompt = agent_configs[action_handle]
+    except KeyError:
+        print(f"No agent action {action_handle}.", file=sys.stderr)
+        sys.exit(1)
+
+    # Read all input components
+    input_texts = []
+    total_size = 0
+    for project, component in input_projects_components:
+        component_path = os.path.join(workspace_data.projects[project].components_folder, component)
+        try:
+            file_size = os.path.getsize(component_path)
+            if file_size > SIZE_LIMIT:
+                raise ValueError(f"File {component_path} is too large ({file_size} bytes; limit is {SIZE_LIMIT} bytes).")
+            total_size += file_size
+            with open(component_path, "r", encoding="utf-8") as f:
+                input_texts.append(f.read())
+        except Exception as e:
+            print(f"Failed to read input component file: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    # Read target component
+    target_component_path = os.path.join(workspace_data.projects[target_project].components_folder, target_component)
+    try:
+        target_file_size = os.path.getsize(target_component_path)
+        if target_file_size > SIZE_LIMIT:
+            raise ValueError(f"File {target_component_path} is too large ({target_file_size} bytes; limit is {SIZE_LIMIT} bytes).")
+        total_size += target_file_size
+        with open(target_component_path, "r", encoding="utf-8") as f:
+            target_text = f.read()
+    except Exception as e:
+        print(f"Failed to read target component file: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Check total message size (inputs + target)
+    total_limit = SIZE_LIMIT * 3  # Allow larger total for multi-input
+    if total_size > total_limit:
+        print(f"Total message size ({total_size} bytes) exceeds limit ({total_limit} bytes).", file=sys.stderr)
+        sys.exit(1)
+
+    messages = make_LLM_messages_multi_input_components(action_prompt, input_texts, target_text)
+    client = get_client()
+    try:
+        with yaspin(text="Waiting for LLM response...") as spinner:
+            response = client.chat.completions.create(model="gpt-4o", messages=messages)
+    except Exception as e:
+        print(f"OpenAI API error: {e}")
+        sys.exit(1)
+
+    revised_target_text = response.choices[0].message.content
+    overwrite_component(target_component_path, revised_target_text)
+
+
 def compare_strings_succinct(original, corrected):
     diff = difflib.unified_diff(original.split(), corrected.split(), lineterm='')
     # Join and print the differences
