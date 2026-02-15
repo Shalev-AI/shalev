@@ -1,0 +1,15 @@
+workspace:
+  name: Test Workspace
+  description: A minimal workspace for unit testing
+  action_prompts_folder: ./action_prompts
+  workspace_system_prompts: {}
+  projects:
+    - name: Test Project
+      project_handle: testproj
+      description: A test project with 10 components
+      project_folder: testproj_project
+      components_folder: components
+      root_component: root.tex
+      supporting_files_folder: supporting_files
+      results_folder: results
+      build_folder: build

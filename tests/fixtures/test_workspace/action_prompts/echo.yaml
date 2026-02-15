@@ -1,0 +1,8 @@
+agent_command_name: echo
+main_source_label: __single_input_component_text
+system_prompt:
+  content: |
+    Return the input text exactly as provided, without any changes.
+user_prompt:
+  content: |
+    __single_input_component_text

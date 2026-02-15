@@ -1,0 +1,13 @@
+agent_command_name: stm
+main_source_label: __multi_input_component_texts
+system_prompt:
+  content: |
+    You will be provided with multiple example texts under INPUT 1, INPUT 2, etc.
+    These examples demonstrate a particular writing style.
+    You will also be provided a target text under TARGET.
+    Your task is to rewrite the TARGET to match the style shown in the INPUT examples.
+    Return only the rewritten text without explanations.
+    Preserve the meaning and structure of TARGET, only change the style.
+user_prompt:
+  content: |
+    __multi_input_component_texts
