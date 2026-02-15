@@ -53,18 +53,30 @@ class TestProjectLoading:
 class TestActionPrompts:
     """Tests for action prompt loading."""
 
-    def test_action_prompts_exist(self, test_workspace_data):
-        """Test that action prompt files exist."""
+    def test_action_prompts_folders_exist(self, test_workspace_data):
+        """Test that action prompt subdirectories exist."""
         folder = test_workspace_data.action_prompts_folder
-        files = os.listdir(folder)
-        assert 'echo.yaml' in files
-        assert 'stm.yaml' in files
+        assert os.path.isdir(os.path.join(folder, 'global'))
+        assert os.path.isdir(os.path.join(folder, 'project'))
+        assert os.path.isdir(os.path.join(folder, 'component'))
 
     def test_load_action_configs(self, test_workspace_data):
-        """Test loading action configurations."""
+        """Test loading action configurations from all subdirectories."""
         from shalev.agent_actions.agent import load_agent_configs_from_folder
         configs = load_agent_configs_from_folder(test_workspace_data.action_prompts_folder)
+        # Global actions
         assert 'echo' in configs
         assert 'stm' in configs
-        assert configs['echo'].agent_command_name == 'echo'
-        assert configs['stm'].agent_command_name == 'stm'
+        # Project actions
+        assert 'ltb' in configs
+        # Component actions
+        assert 'expand' in configs
+
+    def test_load_action_configs_with_category(self, test_workspace_data):
+        """Test loading action configurations with category info."""
+        from shalev.agent_actions.agent import load_agent_configs_from_folder
+        configs = load_agent_configs_from_folder(test_workspace_data.action_prompts_folder, include_category=True)
+        assert configs['echo'][1] == 'global'
+        assert configs['stm'][1] == 'global'
+        assert configs['ltb'][1] == 'project'
+        assert configs['expand'][1] == 'component'

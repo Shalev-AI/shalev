@@ -47,8 +47,15 @@ class TestAgentCommand:
                 f.write(shalev_config)
             result = runner.invoke(cli, ['agent', '--list'])
             assert result.exit_code == 0
+            # Check actions are listed
             assert 'echo' in result.output
             assert 'stm' in result.output
+            assert 'ltb' in result.output
+            assert 'expand' in result.output
+            # Check categories are shown
+            assert '[global]' in result.output
+            assert '[project]' in result.output
+            assert '[component]' in result.output
 
     def test_agent_mixed_mode_error(self, test_workspace_path):
         """Test that mixing positional and flag modes fails."""

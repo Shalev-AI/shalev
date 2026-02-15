@@ -40,14 +40,51 @@ class ActionPrompt:
     user_prompt: dict
     # additional_source_label: field(repr = False) QQQQ
 
-def load_agent_configs_from_folder(folder_path: str) -> List[ActionPrompt]:
+def load_agent_configs_from_folder(folder_path: str, include_category: bool = False):
+    """Load agent configs from folder and subdirectories.
+
+    Searches the root folder and subdirectories (global/, project/, component/).
+    Actions in subdirectories are categorized by their folder name.
+
+    Args:
+        folder_path: Path to the action_prompts folder
+        include_category: If True, returns dict of {name: (ActionPrompt, category)}
+                         If False, returns dict of {name: ActionPrompt}
+    """
     agent_configs = {}
-    for filename in os.listdir(folder_path):
-        if filename.endswith('.yaml') or filename.endswith('.yml'):
-            with open(os.path.join(folder_path, filename), 'r') as f:
-                data = yaml.safe_load(f)
-            action_prompt = ActionPrompt(**data)
-            agent_configs[action_prompt.agent_command_name] = action_prompt
+
+    # Define search locations: (subfolder, category_name)
+    # None subfolder means root folder
+    search_locations = [
+        (None, 'uncategorized'),
+        ('global', 'global'),
+        ('project', 'project'),
+        ('component', 'component'),
+    ]
+
+    for subfolder, category in search_locations:
+        if subfolder:
+            search_path = os.path.join(folder_path, subfolder)
+        else:
+            search_path = folder_path
+
+        if not os.path.isdir(search_path):
+            continue
+
+        for filename in os.listdir(search_path):
+            if filename.endswith('.yaml') or filename.endswith('.yml'):
+                filepath = os.path.join(search_path, filename)
+                # Skip if it's a directory
+                if os.path.isdir(filepath):
+                    continue
+                with open(filepath, 'r') as f:
+                    data = yaml.safe_load(f)
+                action_prompt = ActionPrompt(**data)
+                if include_category:
+                    agent_configs[action_prompt.agent_command_name] = (action_prompt, category)
+                else:
+                    agent_configs[action_prompt.agent_command_name] = action_prompt
+
     return agent_configs
 
 

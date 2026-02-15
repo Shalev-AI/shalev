@@ -1,0 +1,10 @@
+agent_command_name: expand
+main_source_label: __single_input_component_text
+system_prompt:
+  content: |
+    Expand the given section with more detail and examples.
+    Maintain the same style and structure.
+    Return the expanded content.
+user_prompt:
+  content: |
+    __single_input_component_text

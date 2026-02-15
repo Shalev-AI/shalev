@@ -166,18 +166,34 @@ def agent(action, projcomps, all_ext, inputs, targets, list_actions, show_shalev
 
     if list_actions:
         from shalev.agent_actions.agent import load_agent_configs_from_folder
-        agent_configs = load_agent_configs_from_folder(workspace_data.action_prompts_folder)
+        agent_configs = load_agent_configs_from_folder(workspace_data.action_prompts_folder, include_category=True)
         if not agent_configs:
             click.echo("No actions found.")
             return
+
+        # Group by category
+        by_category = {}
+        for name, (prompt, category) in agent_configs.items():
+            if category not in by_category:
+                by_category[category] = []
+            by_category[category].append((name, prompt))
+
         click.echo(f"Available actions ({len(agent_configs)}):\n")
-        for name, prompt in agent_configs.items():
-            click.echo(f"  {name}")
-            system_content = prompt.system_prompt.get("content", "").strip()
-            if system_content:
-                for line in system_content.splitlines():
-                    click.echo(f"    {line}")
-            click.echo()
+
+        # Display order: global, project, component, uncategorized
+        category_order = ['global', 'project', 'component', 'uncategorized']
+        for category in category_order:
+            if category not in by_category:
+                continue
+            actions = by_category[category]
+            click.echo(f"[{category}]")
+            for name, prompt in sorted(actions):
+                click.echo(f"  {name}")
+                system_content = prompt.system_prompt.get("content", "").strip()
+                if system_content:
+                    for line in system_content.splitlines():
+                        click.echo(f"    {line}")
+                click.echo()
         return
 
     if action is None:

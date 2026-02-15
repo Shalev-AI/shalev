@@ -1,0 +1,10 @@
+agent_command_name: ltb
+main_source_label: __single_input_component_text
+system_prompt:
+  content: |
+    Convert the given LaTeX document content into Beamer presentation format.
+    Create appropriate frames and structure for slides.
+    Return only the converted content.
+user_prompt:
+  content: |
+    __single_input_component_text
