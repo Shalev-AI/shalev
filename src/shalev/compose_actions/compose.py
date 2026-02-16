@@ -4,6 +4,43 @@ from pprint import pprint
 from ..shalev_eachrun_setup import *
 
 
+def build_file_index(components_folder):
+    """Walk components_folder and build {filename: full_path} dict.
+
+    Raises ValueError if two files share the same filename.
+    """
+    index = {}
+    for dirpath, _dirnames, filenames in os.walk(components_folder):
+        for fname in filenames:
+            full_path = os.path.join(dirpath, fname)
+            if fname in index:
+                raise ValueError(
+                    f"Duplicate component filename '{fname}' found in:\n"
+                    f"  {index[fname]}\n"
+                    f"  {full_path}"
+                )
+            index[fname] = full_path
+    return index
+
+
+def resolve_include(include_ref, components_folder, file_index=None):
+    """Resolve an include reference to a full path.
+
+    If include_ref contains '/', resolve relative to components_folder (backward compat).
+    Otherwise, look up the bare filename in file_index.
+    Falls back to os.path.join if file_index is None.
+    """
+    if '/' in include_ref:
+        return os.path.join(components_folder, include_ref)
+    if file_index is not None:
+        if include_ref not in file_index:
+            raise FileNotFoundError(
+                f"Component '{include_ref}' not found in any subdirectory of components folder"
+            )
+        return file_index[include_ref]
+    return os.path.join(components_folder, include_ref)
+
+
 def compose_action(shalev_project: ShalevProject, show_log=False):
     try:
         complete_text = create_complete_text(shalev_project.root_component, shalev_project.components_folder)
@@ -45,7 +82,7 @@ def compose_action(shalev_project: ShalevProject, show_log=False):
 
  
     
-def process_file(file_path, components_folder, processed_files=None):
+def process_file(file_path, components_folder, processed_files=None, file_index=None):
     # Initialize the set to track the current inclusion chain (to detect circular includes)
     if processed_files is None:
         processed_files = set()
@@ -68,11 +105,11 @@ def process_file(file_path, components_folder, processed_files=None):
                 # Extract the file to be included
                 included_file = stripped[len('!!!>include('):-1].strip()
 
-                # Generate the full path relative to the components folder
-                included_file_path = os.path.join(components_folder, included_file)
+                # Resolve the include path (supports bare filenames via file_index)
+                included_file_path = resolve_include(included_file, components_folder, file_index)
 
                 # Recursively process the included file
-                included_text = process_file(included_file_path, components_folder, processed_files)
+                included_text = process_file(included_file_path, components_folder, processed_files, file_index)
 
                 # Add the included text to the body
                 complete_text.append(included_text)
@@ -85,7 +122,7 @@ def process_file(file_path, components_folder, processed_files=None):
 
     return ''.join(complete_text)
 
-def process_file_with_target(file_path, components_folder, target_content, processed_files=None):
+def process_file_with_target(file_path, components_folder, target_content, processed_files=None, file_index=None):
     """Like process_file but also replaces !!!>include_target with target_content."""
     if processed_files is None:
         processed_files = set()
@@ -105,8 +142,8 @@ def process_file_with_target(file_path, components_folder, target_content, proce
                     complete_text.append('\n')
             elif stripped.startswith('!!!>include(') and stripped.endswith(')'):
                 included_file = stripped[len('!!!>include('):-1].strip()
-                included_file_path = os.path.join(components_folder, included_file)
-                included_text = process_file(included_file_path, components_folder, processed_files)
+                included_file_path = resolve_include(included_file, components_folder, file_index)
+                included_text = process_file(included_file_path, components_folder, processed_files, file_index)
                 complete_text.append(included_text)
             else:
                 complete_text.append(line)
@@ -117,7 +154,8 @@ def process_file_with_target(file_path, components_folder, target_content, proce
 
 def create_complete_text(root_file, components_folder):
     try:
-        complete_text = process_file(root_file, components_folder)
+        file_index = build_file_index(components_folder)
+        complete_text = process_file(root_file, components_folder, file_index=file_index)
         return complete_text
     except Exception as e:
         print(f"Error: {e}")
@@ -143,8 +181,14 @@ def compose_target_action(shalev_project, target_name, show_log=False):
         print(f"Error: Wrapper file not found: {shalev_project.compose_wrapper}")
         return (False, None)
 
+    try:
+        file_index = build_file_index(shalev_project.components_folder)
+    except ValueError as e:
+        print(f"Error: {e}")
+        return (False, None)
+
     target_component = shalev_project.compose_targets[target_name]
-    target_path = os.path.join(shalev_project.components_folder, target_component)
+    target_path = resolve_include(target_component, shalev_project.components_folder, file_index)
 
     if not os.path.isfile(target_path):
         print(f"Error: Target component not found: {target_path}")
@@ -152,13 +196,14 @@ def compose_target_action(shalev_project, target_name, show_log=False):
 
     try:
         # Resolve the target component content
-        target_content = process_file(target_path, shalev_project.components_folder)
+        target_content = process_file(target_path, shalev_project.components_folder, file_index=file_index)
 
         # Process the wrapper, substituting !!!>include_target with target content
         complete_text = process_file_with_target(
             shalev_project.compose_wrapper,
             shalev_project.components_folder,
-            target_content
+            target_content,
+            file_index=file_index
         )
 
         tex_filename = f'composed_{target_name}.tex'

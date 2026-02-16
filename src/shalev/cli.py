@@ -529,7 +529,7 @@ def view(project_or_target, show_shalev_log):
 ###############
 # shalev tree #
 ###############
-def build_tree(file_path, components_folder, processed_files=None):
+def build_tree(file_path, components_folder, processed_files=None, file_index=None):
     """Parse include statements and return list of (name, subtree) tuples."""
     if processed_files is None:
         processed_files = set()
@@ -543,8 +543,8 @@ def build_tree(file_path, components_folder, processed_files=None):
             for line in f:
                 if line.startswith('!!!>include(') and line.rstrip().endswith(')'):
                     included = line[len('!!!>include('):line.rstrip().rindex(')')].strip()
-                    included_path = os.path.join(components_folder, included)
-                    subtree = build_tree(included_path, components_folder, processed_files)
+                    included_path = resolve_include(included, components_folder, file_index)
+                    subtree = build_tree(included_path, components_folder, processed_files, file_index)
                     children.append((included, subtree))
     except FileNotFoundError:
         pass
@@ -583,7 +583,8 @@ def tree(project, show_shalev_log):
     proj = workspace_data.projects[project]
     root_path = proj.root_component
     root_name = os.path.basename(root_path)
-    children = build_tree(root_path, proj.components_folder)
+    file_index = build_file_index(proj.components_folder)
+    children = build_tree(root_path, proj.components_folder, file_index=file_index)
     print_tree(root_name, children)
 
 
