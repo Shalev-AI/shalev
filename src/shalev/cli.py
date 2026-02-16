@@ -8,6 +8,27 @@ import sys
 import subprocess
 import yaml
 
+
+class VariadicOption(click.Option):
+    """Click option that consumes multiple space-separated values until the next flag.
+
+    Use with multiple=True. Usage: --inputs a b c  instead of  --input a --input b --input c
+    """
+
+    def add_to_parser(self, parser, ctx):
+        def parser_process(value, state):
+            self._original_process(value, state)
+            while state.rargs and not state.rargs[0].startswith('-'):
+                self._original_process(state.rargs.pop(0), state)
+
+        super().add_to_parser(parser, ctx)
+        for name in self.opts:
+            option = parser._long_opt.get(name) or parser._short_opt.get(name)
+            if option:
+                self._original_process = option.process
+                option.process = parser_process
+                break
+
 #################
 # logging setup #
 #################
@@ -151,8 +172,8 @@ def compose(project_or_target, show_log, show_shalev_log):
 @click.argument('action', required=False, default=None)
 @click.argument('projcomps', nargs=-1)
 @click.option('--all', 'all_ext', default=None, help="Run action on all files with given extension (e.g., .jl) in the folder")
-@click.option('--inputs', '--input', 'inputs', multiple=True, help="Input/example components (read-only)")
-@click.option('--targets', '--target', 'targets', multiple=True, help="Target components to transform")
+@click.option('--inputs', '--input', 'inputs', cls=VariadicOption, multiple=True, help="Input/example components (read-only)")
+@click.option('--targets', '--target', 'targets', cls=VariadicOption, multiple=True, help="Target components to transform")
 @click.option('--list', '-l', 'list_actions', is_flag=True, help="List all available actions")
 @click.option('--exact', is_flag=True, help="Require exact component match (no auto-suggestion)")
 @click.option('--show-shalev-log', is_flag=True, help="Show shalev internal log messages")
