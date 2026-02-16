@@ -168,3 +168,6 @@ example_workspace/composed_project.*
 
 # Ignore AUX files
 *.aux
+
+# Shalev log
+shalev_log.jsonl

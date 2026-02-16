@@ -2,8 +2,6 @@ import click
 import logging
 import os
 import shutil
-from datetime import datetime
-import json
 import sys
 import subprocess
 import yaml
@@ -32,37 +30,11 @@ class VariadicOption(click.Option):
 #################
 # logging setup #
 #################
-# global list to store logs
 
-class JSONFileHandler(logging.Handler):
-    def __init__(self, path):
-        super().__init__()
-        self.path = path
-
-    def emit(self, record):
-        timestamp = datetime.fromtimestamp(record.created).strftime("%Y-%m-%d %H:%M:%S")
-
-        with open(self.path, "a") as f:
-            json_record = {
-                "timestamp": timestamp,
-                "level": record.levelname,
-                "message": record.getMessage(),
-            }
-            f.write(json.dumps(json_record) + "\n")
-
-def setup_logging(log_file="shalev_log.jsonl", show_log=False):
+def setup_logging():
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
     logger.handlers.clear()
-
-    if show_log:
-        stream = logging.StreamHandler(sys.stdout)
-        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s", "%H:%M:%S")
-        stream.setFormatter(formatter)
-        logger.addHandler(stream)
-
-    file_handler = JSONFileHandler(log_file)
-    logger.addHandler(file_handler)
 
 
 from shalev.agent_actions import *
