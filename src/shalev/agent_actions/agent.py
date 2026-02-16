@@ -82,11 +82,14 @@ def find_similar_components(components_folder: str, component_handle: str, max_s
     return suggestions[:max_suggestions]
 
 
-def read_component_file(components_folder: str, component_handle: str) -> tuple:
-    """Read a component file, with interactive suggestions if not found.
+def read_component_file(components_folder: str, component_handle: str, exact: bool = False) -> tuple:
+    """Read a component file, with automatic suggestions if not found.
+
+    By default, automatically uses the best match when a component is not found.
+    With exact=True, requires an exact match and exits on failure.
 
     Returns:
-        (resolved_component_handle, text) - the handle may differ if user accepted a suggestion
+        (resolved_component_handle, text) - the handle may differ if a suggestion was used
     """
     component_path = os.path.join(components_folder, component_handle)
 
@@ -94,25 +97,16 @@ def read_component_file(components_folder: str, component_handle: str) -> tuple:
         suggestions = find_similar_components(components_folder, component_handle)
         print(f"Component not found: {component_handle}", file=sys.stderr)
 
-        if suggestions:
-            # Offer the first suggestion
+        if suggestions and not exact:
             suggested = suggestions[0]
-            print(f"\nDid you mean: {suggested}?", file=sys.stderr)
+            print(f"Using: {suggested}", file=sys.stderr)
             if len(suggestions) > 1:
                 print(f"  (other options: {', '.join(suggestions[1:])})", file=sys.stderr)
-
-            try:
-                answer = input("Use this instead? [Y/n]: ").strip().lower()
-            except (EOFError, KeyboardInterrupt):
-                print("\nAborted.", file=sys.stderr)
-                sys.exit(1)
-
-            if answer in ('', 'y', 'yes'):
-                component_handle = suggested
-                component_path = os.path.join(components_folder, component_handle)
-                print(f"Using: {component_handle}")
-            else:
-                sys.exit(1)
+            component_handle = suggested
+            component_path = os.path.join(components_folder, component_handle)
+        elif suggestions:
+            print(f"\nDid you mean: {', '.join(suggestions)}?", file=sys.stderr)
+            sys.exit(1)
         else:
             sys.exit(1)
 
@@ -200,7 +194,7 @@ def load_agent_configs_from_folder(folder_path: str, include_category: bool = Fa
     return agent_configs
 
 
-def agent_action_single_component(workspace_data: ShalevWorkspace, action_handle, project_handle, component_handle):
+def agent_action_single_component(workspace_data: ShalevWorkspace, action_handle, project_handle, component_handle, exact=False):
     agent_configs = load_agent_configs_from_folder(workspace_data.action_prompts_folder) #QQQQ do someplace else
     try:
         action_prompt = agent_configs[action_handle]
@@ -208,7 +202,7 @@ def agent_action_single_component(workspace_data: ShalevWorkspace, action_handle
         print(f"No agent action {action_handle}.", file=sys.stderr)
         sys.exit(1)
     components_folder = workspace_data.projects[project_handle].components_folder
-    component_handle, component_text = read_component_file(components_folder, component_handle)
+    component_handle, component_text = read_component_file(components_folder, component_handle, exact=exact)
     component_path = os.path.join(components_folder, component_handle)
     messages = make_LLM_messages_single_component(action_prompt, component_text)
     client = get_client()
@@ -226,7 +220,8 @@ def agent_action_single_component(workspace_data: ShalevWorkspace, action_handle
 def agent_action_source_and_dest_components(workspace_data: ShalevWorkspace,
                                             action_handle,
                                             source_project_handle, source_component_handle,
-                                            dest_project_handle, dest_component_handle):
+                                            dest_project_handle, dest_component_handle,
+                                            exact=False):
     agent_configs = load_agent_configs_from_folder(workspace_data.action_prompts_folder)
     try:
         action_prompt = agent_configs[action_handle]
@@ -236,8 +231,8 @@ def agent_action_source_and_dest_components(workspace_data: ShalevWorkspace,
     source_components_folder = workspace_data.projects[source_project_handle].components_folder
     dest_components_folder = workspace_data.projects[dest_project_handle].components_folder
 
-    source_component_handle, source_component_text = read_component_file(source_components_folder, source_component_handle)
-    dest_component_handle, dest_component_text = read_component_file(dest_components_folder, dest_component_handle)
+    source_component_handle, source_component_text = read_component_file(source_components_folder, source_component_handle, exact=exact)
+    dest_component_handle, dest_component_text = read_component_file(dest_components_folder, dest_component_handle, exact=exact)
     dest_component_path = os.path.join(dest_components_folder, dest_component_handle)
 
     messages = make_LLM_messages_source_and_dest_components(action_prompt, source_component_text, dest_component_text)
@@ -326,7 +321,8 @@ def agent_action_multi_input_components(
     action_handle: str,
     input_projects_components: List[tuple],  # [(project, component), ...]
     target_project: str,
-    target_component: str
+    target_component: str,
+    exact: bool = False
 ):
     """Run an agent action with multiple input components and one target component.
 
@@ -345,13 +341,13 @@ def agent_action_multi_input_components(
     total_size = 0
     for project, component in input_projects_components:
         components_folder = workspace_data.projects[project].components_folder
-        _, text = read_component_file(components_folder, component)
+        _, text = read_component_file(components_folder, component, exact=exact)
         input_texts.append(text)
         total_size += len(text.encode('utf-8'))
 
     # Read target component
     target_components_folder = workspace_data.projects[target_project].components_folder
-    target_component, target_text = read_component_file(target_components_folder, target_component)
+    target_component, target_text = read_component_file(target_components_folder, target_component, exact=exact)
     target_component_path = os.path.join(target_components_folder, target_component)
     total_size += len(target_text.encode('utf-8'))
 

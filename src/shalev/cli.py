@@ -154,8 +154,9 @@ def compose(project_or_target, show_log, show_shalev_log):
 @click.option('--inputs', '--input', 'inputs', multiple=True, help="Input/example components (read-only)")
 @click.option('--targets', '--target', 'targets', multiple=True, help="Target components to transform")
 @click.option('--list', '-l', 'list_actions', is_flag=True, help="List all available actions")
+@click.option('--exact', is_flag=True, help="Require exact component match (no auto-suggestion)")
 @click.option('--show-shalev-log', is_flag=True, help="Show shalev internal log messages")
-def agent(action, projcomps, all_ext, inputs, targets, list_actions, show_shalev_log):
+def agent(action, projcomps, all_ext, inputs, targets, list_actions, exact, show_shalev_log):
     """Run an LLM agent action on one or two components.
 
     ACTION is the name of an agent action defined in the workspace's
@@ -217,7 +218,6 @@ def agent(action, projcomps, all_ext, inputs, targets, list_actions, show_shalev
 
     # Detect mode: flag mode (--inputs/--targets) vs positional mode
     flag_mode = bool(inputs or targets)
-
     if flag_mode and projcomps:
         raise click.UsageError("Cannot mix positional arguments with --inputs/--targets flags.")
 
@@ -278,7 +278,8 @@ def agent(action, projcomps, all_ext, inputs, targets, list_actions, show_shalev
                 action,
                 input_projcomps,
                 target_project,
-                target_component
+                target_component,
+                exact=exact
             )
             if len(target_projcomps) > 1:
                 click.echo()
@@ -325,7 +326,7 @@ def agent(action, projcomps, all_ext, inputs, targets, list_actions, show_shalev
         for i, filename in enumerate(matching_files, 1):
             component = os.path.join(folder, filename)
             click.echo(f"[{i}/{len(matching_files)}] Processing: {component}")
-            agent_action_single_component(workspace_data, action, project, component)
+            agent_action_single_component(workspace_data, action, project, component, exact=exact)
             click.echo()
 
         click.echo(f"Completed processing {len(matching_files)} file(s).")
@@ -335,11 +336,11 @@ def agent(action, projcomps, all_ext, inputs, targets, list_actions, show_shalev
         raise click.UsageError(f"Need at least one project~component pair")
     elif len(projcomps) == 1:
         project, component = projcomps[0].split('~', 1)
-        agent_action_single_component(workspace_data, action, project, component)
+        agent_action_single_component(workspace_data, action, project, component, exact=exact)
     elif len(projcomps) == 2:
         source_project, source_component = projcomps[0].split('~', 1)
         dest_project, dest_component = projcomps[1].split('~', 1)
-        agent_action_source_and_dest_components(workspace_data, action, source_project, source_component, dest_project, dest_component)
+        agent_action_source_and_dest_components(workspace_data, action, source_project, source_component, dest_project, dest_component, exact=exact)
 
         # print(f"{source_project=}, {source_component=}, {dest_project=}, {dest_component=}")
     else:
