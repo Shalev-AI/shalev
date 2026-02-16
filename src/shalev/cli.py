@@ -106,24 +106,40 @@ def resolve_project(workspace_data, project):
 # shalev compose #
 ##################
 @click.command()
-@click.argument('project', required=False, default=None)
+@click.argument('project_or_target', required=False, default=None)
 @click.option('--show-log', is_flag=True, help="Show full LaTeX compilation log")
 @click.option('--show-shalev-log', is_flag=True, help="Show shalev internal log messages")
-def compose(project, show_log, show_shalev_log):
+def compose(project_or_target, show_log, show_shalev_log):
     """Compose components into a document and compile with LaTeX.
 
     Recursively resolves !!!>include() directives starting from the root
     component, assembles a single LaTeX source file, and compiles it with
     pdflatex.
 
-    PROJECT is the project handle as defined in workspace_config.yaml. If
-    omitted, auto-selects when there is a single project or uses the default
-    project.
+    PROJECT_OR_TARGET is either a project handle or a compose target name.
+    If it matches a project handle, the full project is composed. Otherwise
+    it is treated as a compose target (e.g. chap3) and only that target is
+    compiled using the compose wrapper. If omitted, composes the full
+    default/single project.
     """
     if show_shalev_log:
         enable_verbose_logging()
     workspace_data = setup_workspace()
-    project = resolve_project(workspace_data, project)
+
+    # Smart resolution: project name, compose target, or full compose
+    if project_or_target is not None and project_or_target not in workspace_data.projects:
+        # Not a project name — treat as compose target
+        project = resolve_project(workspace_data, None)
+        proj = workspace_data.projects[project]
+        target_name = project_or_target
+        logging.info(f"Running compose target '{target_name}' on project: {project}")
+        success, pdf_filename = compose_target_action(proj, target_name, show_log=show_log)
+        if success:
+            print(f"To view the output, run: shalev view {target_name}")
+        return
+
+    # Full project compose
+    project = resolve_project(workspace_data, project_or_target)
     logging.info(f"Running compose on project: {project}")
     if compose_action(workspace_data.projects[project], show_log=show_log):
         print(f"To view the output, run: shalev view {project}")
@@ -469,21 +485,41 @@ def default_project(project, show_shalev_log):
 # shalev view #
 ###############
 @click.command()
-@click.argument('project', required=False, default=None)
+@click.argument('project_or_target', required=False, default=None)
 @click.option('--show-shalev-log', is_flag=True, help="Show shalev internal log messages")
-def view(project, show_shalev_log):
-    """Open the composed PDF for a project.
+def view(project_or_target, show_shalev_log):
+    """Open the composed PDF for a project or compose target.
 
     Opens the compiled PDF from the build folder using the system default
     PDF viewer. Run 'shalev compose' first to generate the PDF.
 
-    PROJECT is optional; auto-selects when there is a single project or
-    uses the default project.
+    PROJECT_OR_TARGET is either a project handle or a compose target name
+    (e.g. chap3). If it matches a project handle, opens the full project
+    PDF. Otherwise opens the target PDF. If omitted, opens the full
+    default/single project PDF.
     """
     if show_shalev_log:
         enable_verbose_logging()
     workspace_data = setup_workspace()
-    project = resolve_project(workspace_data, project)
+
+    # Smart resolution: if arg is not a project name, treat as compose target
+    if project_or_target is not None and project_or_target not in workspace_data.projects:
+        project = resolve_project(workspace_data, None)
+        proj = workspace_data.projects[project]
+        target_name = project_or_target
+        if proj.compose_targets and target_name in proj.compose_targets:
+            pdf_path = os.path.join(proj.build_folder, f'composed_{target_name}.pdf')
+            if not os.path.exists(pdf_path):
+                print(f"Error: {pdf_path} does not exist. Run 'shalev compose {target_name}' first.")
+                sys.exit(1)
+            subprocess.run(['open', pdf_path])
+            return
+        else:
+            available = ', '.join(sorted(proj.compose_targets.keys())) if proj.compose_targets else 'none'
+            print(f"Error: '{target_name}' is not a project or compose target. Available targets: {available}")
+            sys.exit(1)
+
+    project = resolve_project(workspace_data, project_or_target)
     pdf_path = os.path.join(workspace_data.projects[project].build_folder, 'composed_project.pdf')
     if not os.path.exists(pdf_path):
         print(f"Error: {pdf_path} does not exist. Run 'shalev compose {project}' first.")

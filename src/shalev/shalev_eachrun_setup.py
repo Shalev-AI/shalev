@@ -2,8 +2,8 @@ import os
 import subprocess
 import sys
 import yaml
-from dataclasses import dataclass
-from typing import List, Dict
+from dataclasses import dataclass, field
+from typing import List, Dict, Optional
 from pprint import pprint
 
 @dataclass
@@ -17,6 +17,8 @@ class ShalevProject:
     project_handle: str
     results_folder: str
     supporting_files_folder: str
+    compose_targets: Optional[Dict[str, str]] = None
+    compose_wrapper: Optional[str] = None
 
 @dataclass
 class ShalevWorkspace:
@@ -32,6 +34,8 @@ def add_prefix_to_project_folders(proj: ShalevProject, prefix: str):
     proj.root_component = os.path.join(proj.components_folder, proj.root_component)
     proj.results_folder = os.path.join(prefix, proj.project_folder, proj.results_folder)
     proj.supporting_files_folder = os.path.join(prefix, proj.project_folder, proj.supporting_files_folder)
+    if proj.compose_wrapper:
+        proj.compose_wrapper = os.path.join(proj.components_folder, proj.compose_wrapper)
     proj.project_folder = os.path.join(prefix, proj.project_folder)
     return proj
 

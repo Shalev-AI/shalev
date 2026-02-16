@@ -85,6 +85,36 @@ def process_file(file_path, components_folder, processed_files=None):
 
     return ''.join(complete_text)
 
+def process_file_with_target(file_path, components_folder, target_content, processed_files=None):
+    """Like process_file but also replaces !!!>include_target with target_content."""
+    if processed_files is None:
+        processed_files = set()
+
+    if file_path in processed_files:
+        raise ValueError(f"Circular include detected with file: {file_path}")
+
+    processed_files.add(file_path)
+    complete_text = []
+
+    with open(file_path, 'r') as f:
+        for line in f:
+            stripped = line.rstrip()
+            if stripped == '!!!>include_target':
+                complete_text.append(target_content)
+                if not target_content.endswith('\n'):
+                    complete_text.append('\n')
+            elif stripped.startswith('!!!>include(') and stripped.endswith(')'):
+                included_file = stripped[len('!!!>include('):-1].strip()
+                included_file_path = os.path.join(components_folder, included_file)
+                included_text = process_file(included_file_path, components_folder, processed_files)
+                complete_text.append(included_text)
+            else:
+                complete_text.append(line)
+
+    processed_files.discard(file_path)
+    return ''.join(complete_text)
+
+
 def create_complete_text(root_file, components_folder):
     try:
         complete_text = process_file(root_file, components_folder)
@@ -92,3 +122,79 @@ def create_complete_text(root_file, components_folder):
     except Exception as e:
         print(f"Error: {e}")
         return None
+
+
+def compose_target_action(shalev_project, target_name, show_log=False):
+    """Compose a single target (e.g. a chapter) using the compose wrapper."""
+    if not shalev_project.compose_targets:
+        print("Error: No compose_targets defined for this project.")
+        return (False, None)
+
+    if target_name not in shalev_project.compose_targets:
+        available = ', '.join(sorted(shalev_project.compose_targets.keys()))
+        print(f"Error: Target '{target_name}' not found. Available targets: {available}")
+        return (False, None)
+
+    if not shalev_project.compose_wrapper:
+        print("Error: No compose_wrapper defined for this project.")
+        return (False, None)
+
+    if not os.path.isfile(shalev_project.compose_wrapper):
+        print(f"Error: Wrapper file not found: {shalev_project.compose_wrapper}")
+        return (False, None)
+
+    target_component = shalev_project.compose_targets[target_name]
+    target_path = os.path.join(shalev_project.components_folder, target_component)
+
+    if not os.path.isfile(target_path):
+        print(f"Error: Target component not found: {target_path}")
+        return (False, None)
+
+    try:
+        # Resolve the target component content
+        target_content = process_file(target_path, shalev_project.components_folder)
+
+        # Process the wrapper, substituting !!!>include_target with target content
+        complete_text = process_file_with_target(
+            shalev_project.compose_wrapper,
+            shalev_project.components_folder,
+            target_content
+        )
+
+        tex_filename = f'composed_{target_name}.tex'
+        pdf_filename = f'composed_{target_name}.pdf'
+        composed_path = os.path.join(shalev_project.build_folder, tex_filename)
+
+        with open(composed_path, 'w') as f:
+            f.write(complete_text)
+
+        try:
+            previous_dir = os.getcwd()
+            os.chdir(shalev_project.build_folder)
+            result = subprocess.run(
+                ['pdflatex',
+                 '-interaction=nonstopmode',
+                 '-output-directory=.',
+                 tex_filename],
+                capture_output=True,
+                text=True
+            )
+
+            pdf_produced = os.path.exists(pdf_filename)
+
+            if pdf_produced and result.returncode == 0:
+                print("Compose successful.")
+            elif pdf_produced:
+                print("Compose successful (with warnings). Run with --show-log to see details.")
+            else:
+                print("Compose failed. Run with --show-log to see full output.")
+
+            if show_log:
+                print(result.stdout)
+
+            return (pdf_produced, pdf_filename)
+        finally:
+            os.chdir(previous_dir)
+    except Exception as e:
+        print(f"Error: {e}")
+        return (False, None)
