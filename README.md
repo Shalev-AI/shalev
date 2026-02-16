@@ -130,6 +130,28 @@ shalev config --init-actions
 
 This creates the `global/`, `project/`, and `component/` subdirectories and installs default actions for grammar fixing (`gr`), whitespace cleanup (`ws`), and style transfer (`st`, `stm`). Existing actions are not overwritten.
 
+## Interactive mode
+
+The `interactive` command opens a REPL for iteratively editing a single component with the LLM:
+
+```
+shalev interactive <component>
+```
+
+Inside the session you type natural-language instructions (e.g. "Add an index entry for sigma-algebra") and the LLM returns the modified file. The component is overwritten after each change. Available commands:
+
+| Input | Effect |
+|-------|--------|
+| free text | Send instruction to LLM, overwrite component |
+| `/preview` | Compile the auto-detected compose target and open the PDF |
+| `/preview <target>` | Compile a specific compose target |
+| `;` | Instantly switch to `shell>` mode (Julia REPL style) |
+| backspace on empty `shell>` | Return to `interactive>` |
+| `/help` | List commands |
+| `/quit` or `/q` | Exit |
+
+Each instruction is logged as a plain text file in `action_prompts/interactive/` for history tracking.
+
 ## The Shalev Config
 
 A Shalev project has the `config` folder which has files that specify certain settings such the LLM to use a (.gitignored) file that has API keys, and other content.
@@ -159,6 +181,7 @@ shalev agent --list                                    # List all available acti
 shalev agent <action> <project~folder> --all <ext>     # Run action on all files with extension in folder
 shalev agent <action> --inputs <comp>... --target <comp>   # Multi-input style transfer
 shalev agent <action> --inputs <comp>... --targets <comp>... # Multi-input, multi-target
+shalev interactive <component>                          # Interactive LLM editing session
 shalev split <component> --split-type <cmd>            # Split a component at LaTeX commands
 shalev split <component> --split-type <cmd> --target <dir> --numbered [<prefix>]
 shalev flush [<project>]                               # Delete all files in the build folder

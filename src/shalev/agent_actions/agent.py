@@ -370,6 +370,257 @@ def agent_action_multi_input_components(
     overwrite_component(target_component_path, revised_target_text)
 
 
+def find_compose_target(project, component_handle):
+    """Find the compose target that includes this component.
+
+    Scans chapter files in the components folder for !!!>include({basename})
+    and matches that chapter against compose_targets values.
+
+    Returns the target name (e.g. 'chap1') or None if no match found.
+    """
+    if not project.compose_targets:
+        return None
+
+    basename = os.path.basename(component_handle)
+
+    # Build reverse map: component filename -> target name
+    for target_name, target_component in project.compose_targets.items():
+        target_basename = os.path.basename(target_component)
+        target_path = os.path.join(project.components_folder, target_component)
+        if not os.path.isfile(target_path):
+            continue
+        # Check if this target file directly references our component
+        if target_basename == basename:
+            return target_name
+        try:
+            with open(target_path, 'r') as f:
+                for line in f:
+                    stripped = line.strip()
+                    if stripped.startswith('!!!>include(') and stripped.endswith(')'):
+                        included = stripped[len('!!!>include('):-1].strip()
+                        if os.path.basename(included) == basename:
+                            return target_name
+        except (FileNotFoundError, IOError):
+            continue
+
+    # Also scan all chapter files for the include
+    chapters_dir = os.path.join(project.components_folder, 'chapters')
+    if os.path.isdir(chapters_dir):
+        # Build reverse map: chapter filename -> target name
+        target_by_chapter = {}
+        for target_name, target_component in project.compose_targets.items():
+            target_by_chapter[os.path.basename(target_component)] = target_name
+
+        for chapter_file in os.listdir(chapters_dir):
+            chapter_path = os.path.join(chapters_dir, chapter_file)
+            if not os.path.isfile(chapter_path):
+                continue
+            try:
+                with open(chapter_path, 'r') as f:
+                    for line in f:
+                        stripped = line.strip()
+                        if stripped.startswith('!!!>include(') and stripped.endswith(')'):
+                            included = stripped[len('!!!>include('):-1].strip()
+                            if os.path.basename(included) == basename:
+                                if chapter_file in target_by_chapter:
+                                    return target_by_chapter[chapter_file]
+            except (FileNotFoundError, IOError):
+                continue
+
+    return None
+
+
+def interactive_session(workspace_data, project_handle, component_handle):
+    """Run an interactive editing session on a single component.
+
+    Enters a REPL where the user can type instructions for the LLM to modify
+    the component, preview compiled PDFs, view diffs, undo changes, etc.
+    """
+    import subprocess
+    from datetime import datetime
+
+    proj = workspace_data.projects[project_handle]
+    components_folder = proj.components_folder
+    component_path = os.path.join(components_folder, component_handle)
+
+    # Auto-detect compose target
+    compose_target = find_compose_target(proj, component_handle)
+
+    # Prompt log directory
+    log_dir = os.path.join(workspace_data.action_prompts_folder, 'interactive')
+
+    # System prompt for interactive editing
+    interactive_system_prompt = (
+        "You are editing a LaTeX component. Apply the following change and return the "
+        "complete modified file. Return ONLY the file content, no explanations or markdown "
+        "code fences."
+    )
+
+    print(f"Interactive session: {component_handle}")
+    print(f"Component: {component_path}")
+    if compose_target:
+        print(f"Compose target: {compose_target} (use /preview)")
+    else:
+        print("No compose target detected (use /preview <target> to specify)")
+    print("Type /help for available commands.\n")
+
+    def _read_interactive_input():
+        """Read input with Julia-style instant ; switching to shell mode.
+
+        Returns ('text', line) for normal input, ('shell', line) for shell,
+        or raises EOFError/KeyboardInterrupt.
+        """
+        import tty, termios, readline
+
+        prompt = "interactive> "
+        sys.stdout.write(prompt)
+        sys.stdout.flush()
+
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setcbreak(fd)
+            ch = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
+        if ch == '\x03':  # Ctrl-C
+            sys.stdout.write('\n')
+            raise KeyboardInterrupt
+        if ch == '\x04':  # Ctrl-D
+            sys.stdout.write('\n')
+            raise EOFError
+
+        if ch == ';':
+            # Instantly switch to shell prompt, with Julia-style
+            # backspace-on-empty to return to interactive mode
+            shell_prompt = "shell> "
+            sys.stdout.write('\r\033[K' + shell_prompt)
+            sys.stdout.flush()
+            buf = []
+            while True:
+                old2 = termios.tcgetattr(fd)
+                try:
+                    tty.setcbreak(fd)
+                    sch = sys.stdin.read(1)
+                finally:
+                    termios.tcsetattr(fd, termios.TCSADRAIN, old2)
+
+                if sch == '\x03':  # Ctrl-C
+                    sys.stdout.write('\n')
+                    return ('shell', '')
+                if sch == '\x04':  # Ctrl-D
+                    sys.stdout.write('\n')
+                    return ('shell', '')
+                if sch == '\x7f' or sch == '\x08':  # Backspace
+                    if not buf:
+                        # Empty buffer — backspace exits shell, back to interactive
+                        sys.stdout.write('\r\033[K')
+                        sys.stdout.flush()
+                        return _read_interactive_input()
+                    buf.pop()
+                    sys.stdout.write('\r\033[K' + shell_prompt + ''.join(buf))
+                    sys.stdout.flush()
+                    continue
+                if sch in ('\r', '\n'):
+                    sys.stdout.write('\n')
+                    return ('shell', ''.join(buf).strip())
+                buf.append(sch)
+                sys.stdout.write(sch)
+                sys.stdout.flush()
+
+        if ch in ('\r', '\n'):
+            sys.stdout.write('\n')
+            return ('text', '')
+
+        # Normal text — pre-fill readline with the first character
+        sys.stdout.write('\r\033[K')
+        readline.set_startup_hook(lambda: readline.insert_text(ch))
+        try:
+            line = input("interactive> ")
+        finally:
+            readline.set_startup_hook(None)
+        return ('text', line.strip())
+
+    while True:
+        try:
+            mode, user_input = _read_interactive_input()
+        except (EOFError, KeyboardInterrupt):
+            print("\nExiting interactive session.")
+            break
+
+        # Shell mode
+        if mode == 'shell':
+            if user_input:
+                subprocess.run(user_input, shell=True)
+            continue
+
+        if not user_input:
+            continue
+
+        # /quit or /q
+        if user_input in ('/quit', '/q'):
+            print("Exiting interactive session.")
+            break
+
+        # /help
+        if user_input == '/help':
+            print("Commands:")
+            print("  <instruction>  - Send instruction to LLM to modify the component")
+            print("  /preview       - Compile and open PDF (auto-detected target)")
+            print("  /preview <t>   - Compile and open PDF for target <t>")
+            print("  ;              - Instantly switch to shell mode (like Julia REPL)")
+            print("  /quit, /q      - Exit interactive session")
+            print("  /help          - Show this help")
+            continue
+
+        # /preview
+        if user_input == '/preview' or user_input.startswith('/preview '):
+            parts = user_input.split(maxsplit=1)
+            target = parts[1] if len(parts) > 1 else compose_target
+            if not target:
+                print("No compose target detected. Use: /preview <target_name>")
+                continue
+            print(f"Composing target '{target}'...")
+            from shalev.compose_actions import compose_target_action
+            success, pdf_filename = compose_target_action(proj, target)
+            if success and pdf_filename:
+                pdf_path = os.path.join(proj.build_folder, pdf_filename)
+                subprocess.run(['open', pdf_path])
+            continue
+
+        # Otherwise: LLM instruction
+        # Read current component text from disk
+        with open(component_path, 'r', encoding='utf-8') as f:
+            component_text = f.read()
+
+        # Log the instruction
+        os.makedirs(log_dir, exist_ok=True)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        comp_basename = os.path.splitext(os.path.basename(component_handle))[0]
+        log_filename = f"{timestamp}_{comp_basename}.txt"
+        log_path = os.path.join(log_dir, log_filename)
+        with open(log_path, 'w', encoding='utf-8') as f:
+            f.write(user_input)
+
+        # Build messages
+        messages = [
+            {"role": "system", "content": interactive_system_prompt},
+            {"role": "user", "content": f"INSTRUCTION: {user_input}\n\nCOMPONENT:\n{component_text}"},
+        ]
+
+        client = get_client()
+        try:
+            with yaspin(text="Waiting for LLM response...") as spinner:
+                response = client.chat.completions.create(model="gpt-4o", messages=messages)
+        except Exception as e:
+            print(f"OpenAI API error: {e}")
+            continue
+
+        revised_text = response.choices[0].message.content
+        overwrite_component(component_path, revised_text)
+
+
 def compare_strings_succinct(original, corrected):
     diff = difflib.unified_diff(original.split(), corrected.split(), lineterm='')
     # Join and print the differences

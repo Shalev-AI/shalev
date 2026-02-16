@@ -835,6 +835,62 @@ def split(component, split_type, target, numbered, show_shalev_log):
     click.echo("Done.")
 
 
+#######################
+# shalev interactive  #
+#######################
+@click.command()
+@click.argument('component')
+@click.option('--show-shalev-log', is_flag=True, help="Show shalev internal log messages")
+def interactive(component, show_shalev_log):
+    """Start an interactive LLM editing session on a component.
+
+    Opens a REPL where you can type natural-language instructions to
+    modify the component via the LLM, preview compiled PDFs, view diffs,
+    and undo changes.
+
+    COMPONENT is a component reference (e.g. 1_3_the_prob). Aliases and
+    fuzzy matching are supported. If a default project is set, you can
+    omit the project~ prefix.
+
+    \b
+    In-session commands:
+      /preview       Compile and open PDF
+      ;              Enter shell mode (empty input to return)
+      ;command       Run a single shell command
+      /quit, /q      Exit session
+      /help          Show commands
+    """
+    if show_shalev_log:
+        enable_verbose_logging()
+    workspace_data = setup_workspace()
+
+    # Resolve aliases
+    aliases = get_aliases()
+    if component in aliases:
+        resolved = aliases[component]
+        click.echo(f"Using alias '{component}' -> '{resolved}'")
+        component = resolved
+
+    # Resolve bare component (no ~) using default project
+    if '~' not in component:
+        project = resolve_project(workspace_data, None)
+    else:
+        parts = component.split('~', 1)
+        project = parts[0]
+        component = parts[1]
+        if project not in workspace_data.projects:
+            click.echo(f"Error: project '{project}' not found.")
+            sys.exit(1)
+
+    # Resolve component with fuzzy matching
+    from shalev.agent_actions.agent import read_component_file
+    component, _ = read_component_file(
+        workspace_data.projects[project].components_folder, component
+    )
+
+    interactive_session(workspace_data, project, component)
+
+
 ###########################
 # putting it all together #
 ###########################
@@ -849,6 +905,7 @@ cli.add_command(tree)
 cli.add_command(setup)
 cli.add_command(split)
 cli.add_command(flush)
+cli.add_command(interactive)
 
 def main():
     setup_logging()
