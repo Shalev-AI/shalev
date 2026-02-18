@@ -1,6 +1,6 @@
 import subprocess
 import os
-from pprint import pprint
+import re
 from ..shalev_eachrun_setup import *
 
 
@@ -39,6 +39,39 @@ def resolve_include(include_ref, components_folder, file_index=None):
             )
         return file_index[include_ref]
     return os.path.join(components_folder, include_ref)
+
+
+def extract_chapter_number(target_name, target_component):
+    """Extract chapter number from target name (e.g. 'chap5' → 5) or component filename (e.g. '5_foo.tex' → 5)."""
+    m = re.match(r'chap(\d+)', target_name)
+    if m:
+        return int(m.group(1))
+    basename = os.path.basename(target_component)
+    m = re.match(r'^(\d+)_', basename)
+    if m:
+        return int(m.group(1))
+    return None
+
+
+def extract_chapter_pages(build_folder):
+    """Parse composed_project.aux to get chapter → start page mapping.
+
+    Returns dict[int, int] mapping chapter number to its start page.
+    Returns empty dict if aux file doesn't exist.
+    """
+    aux_path = os.path.join(build_folder, 'composed_project.aux')
+    if not os.path.isfile(aux_path):
+        return {}
+    chapter_pages = {}
+    pattern = re.compile(
+        r'\\contentsline\s*\{chapter\}\{\\numberline\s*\{(\d+)\}.*?\}\{(\d+)\}'
+    )
+    with open(aux_path, 'r') as f:
+        for line in f:
+            m = pattern.search(line)
+            if m:
+                chapter_pages[int(m.group(1))] = int(m.group(2))
+    return chapter_pages
 
 
 def compose_action(shalev_project: ShalevProject, show_log=False):
@@ -122,8 +155,9 @@ def process_file(file_path, components_folder, processed_files=None, file_index=
 
     return ''.join(complete_text)
 
-def process_file_with_target(file_path, components_folder, target_content, processed_files=None, file_index=None):
-    """Like process_file but also replaces !!!>include_target with target_content."""
+def process_file_with_target(file_path, components_folder, target_content, processed_files=None, file_index=None, target_preamble=""):
+    """Like process_file but also replaces !!!>include_target with target_content
+    and !!!>target_preamble with target_preamble."""
     if processed_files is None:
         processed_files = set()
 
@@ -140,6 +174,11 @@ def process_file_with_target(file_path, components_folder, target_content, proce
                 complete_text.append(target_content)
                 if not target_content.endswith('\n'):
                     complete_text.append('\n')
+            elif stripped == '!!!>target_preamble':
+                if target_preamble:
+                    complete_text.append(target_preamble)
+                    if not target_preamble.endswith('\n'):
+                        complete_text.append('\n')
             elif stripped.startswith('!!!>include(') and stripped.endswith(')'):
                 included_file = stripped[len('!!!>include('):-1].strip()
                 included_file_path = resolve_include(included_file, components_folder, file_index)
@@ -195,6 +234,16 @@ def compose_target_action(shalev_project, target_name, show_log=False):
         return (False, None)
 
     try:
+        # Build target preamble for chapter/page numbering
+        target_preamble = ""
+        chapter_num = extract_chapter_number(target_name, target_component)
+        if chapter_num is not None:
+            preamble_lines = [f"\\setcounter{{chapter}}{{{chapter_num - 1}}}"]
+            chapter_pages = extract_chapter_pages(shalev_project.build_folder)
+            if chapter_num in chapter_pages:
+                preamble_lines.append(f"\\setcounter{{page}}{{{chapter_pages[chapter_num]}}}")
+            target_preamble = '\n'.join(preamble_lines) + '\n'
+
         # Resolve the target component content
         target_content = process_file(target_path, shalev_project.components_folder, file_index=file_index)
 
@@ -203,7 +252,8 @@ def compose_target_action(shalev_project, target_name, show_log=False):
             shalev_project.compose_wrapper,
             shalev_project.components_folder,
             target_content,
-            file_index=file_index
+            file_index=file_index,
+            target_preamble=target_preamble
         )
 
         tex_filename = f'composed_{target_name}.tex'
