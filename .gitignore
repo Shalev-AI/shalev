@@ -171,3 +171,6 @@ example_workspace/composed_project.*
 
 # Shalev log
 shalev_log.jsonl
+
+# Local workspace config
+.shalev.yaml
